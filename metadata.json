@@ -1,0 +1,6 @@
+{
+  "name": "Eye Rest",
+  "description": "Screen fatigue recovery and digital eye strain relief with eyes-free audio and haptic guidance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Eye contour -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M24,54 C34,36 74,36 84,54 C74,72 34,72 24,54 Z" />
+    
+    <!-- Central Iris ring -->
+    <path
+        android:fillColor="#14B8A6"
+        android:pathData="M54,54m-12,0a12,12 0,1 1,24 0a12,12 0,1 1,-24 0" />
+    
+    <!-- Pupil -->
+    <path
+        android:fillColor="#0D0E12"
+        android:pathData="M54,54m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+
+    <!-- Calibration / Focus mark -->
+    <path
+        android:fillColor="#EDEDF0"
+        android:pathData="M51,51m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0" />
+</vector>
