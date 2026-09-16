@@ -8,8 +8,16 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.sin
 
 /**
@@ -32,6 +40,146 @@ class SensoryFeedbackManager(private val context: Context) {
 
     var hapticsEnabled: Boolean = true
     var soundEnabled: Boolean = true
+    var voiceEnabled: Boolean = true
+
+    // ==========================================
+    // VOICE COACH (platform TextToSpeech)
+    // ==========================================
+
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+
+    // Utterances someone is waiting on. The engine reports completion on its own thread.
+    private val awaiting = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
+    private val utteranceIds = AtomicLong(0)
+
+    // Bumped by every stopVoice. A script started before the bump must not carry on
+    // speaking after it -- see [speakSequence].
+    private val speechEpoch = AtomicLong(0)
+
+    private fun settle(utteranceId: String?) {
+        utteranceId?.let { awaiting.remove(it)?.complete(Unit) }
+    }
+
+    /** Warms up the engine so the first cue of a session is not swallowed. */
+    fun initVoice() {
+        if (tts != null) return
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale.getDefault().takeIf {
+                    tts?.isLanguageAvailable(it) == TextToSpeech.LANG_AVAILABLE
+                } ?: Locale.US
+                // Every terminal state has to settle the waiter, or a drill that hits a
+                // TTS error would sit on the tutorial forever.
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onDone(utteranceId: String?) = settle(utteranceId)
+
+                    @Deprecated("Required by the pre-21 interface", ReplaceWith(""))
+                    override fun onError(utteranceId: String?) = settle(utteranceId)
+
+                    override fun onError(utteranceId: String?, errorCode: Int) = settle(utteranceId)
+                    override fun onStop(utteranceId: String?, interrupted: Boolean) = settle(utteranceId)
+                })
+                ttsReady = true
+            }
+        }
+    }
+
+    /**
+     * Suspends until the engine is actually usable, or [timeoutMs] passes.
+     *
+     * TextToSpeech initialises asynchronously. Every speak call is a no-op until it
+     * reports ready, so a tutorial that starts talking on a fixed short delay loses its
+     * whole script on a cold start and the user just gets silence.
+     */
+    suspend fun awaitVoiceReady(timeoutMs: Long = 4_000): Boolean {
+        if (!voiceEnabled) return false
+        if (ttsReady) return true
+        return withTimeoutOrNull(timeoutMs) {
+            while (!ttsReady) delay(50)
+            true
+        } ?: false
+    }
+
+    /**
+     * Speaks, and suspends until the engine says it has finished.
+     *
+     * The tutorial needs this. Fire-and-forget let the countdown start counting over the
+     * instruction it was supposed to follow, so the two ran on top of each other. Returns
+     * at once when voice is off, and gives up after [timeoutMs] so an engine that never
+     * reports back cannot strand the user on the tutorial.
+     */
+    suspend fun speakAwait(text: String, timeoutMs: Long = 15_000) {
+        if (!voiceEnabled || !ttsReady || text.isBlank()) return
+        val epoch = speechEpoch.get()
+        val id = "await-" + utteranceIds.incrementAndGet()
+        val done = CompletableDeferred<Unit>()
+        awaiting[id] = done
+        try {
+            tts?.speak(text, TextToSpeech.QUEUE_ADD, null, id)
+            withTimeoutOrNull(timeoutMs) { done.await() }
+        } catch (_: Exception) {
+        } finally {
+            awaiting.remove(id)?.complete(Unit)
+        }
+        // Silently swallowed if we were stopped mid-line: the caller is mid-script and
+        // would otherwise read the next line into whatever replaced it.
+        if (speechEpoch.get() != epoch) throw SpeechInterrupted
+    }
+
+    /**
+     * Speaks [lines] in order, each waiting for the last, and abandons the rest the
+     * moment [stopVoice] is called.
+     *
+     * Without the abort, ending a tutorial early did not end its script. stopVoice settles
+     * the line being spoken, which made the wait return normally, so the next line was
+     * queued and spoke over the drill that had just started -- about ten seconds of
+     * tutorial narration on top of an exercise meant to be silent.
+     */
+    suspend fun speakSequence(vararg lines: String) {
+        try {
+            lines.forEach { speakAwait(it) }
+        } catch (_: SpeechInterrupted) {
+        }
+    }
+
+    /** Thrown internally when a script is cut short. Never escapes [speakSequence]. */
+    private object SpeechInterrupted : Exception() {
+        private fun readResolve(): Any = SpeechInterrupted
+        override fun fillInStackTrace(): Throwable = this
+    }
+
+    /**
+     * Speaks a coaching cue. [interrupt] mirrors a spoken countdown cutting off a
+     * longer instruction so the number still lands on its own second.
+     */
+    fun speak(text: String, interrupt: Boolean = false) {
+        if (!voiceEnabled || !ttsReady || text.isBlank()) return
+        try {
+            tts?.speak(
+                text,
+                if (interrupt) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
+                null,
+                text.hashCode().toString()
+            )
+        } catch (_: Exception) {}
+    }
+
+    fun stopVoice() {
+        speechEpoch.incrementAndGet()
+        try { tts?.stop() } catch (_: Exception) {}
+        // onStop is not guaranteed for queued utterances that never started.
+        awaiting.keys.toList().forEach { settle(it) }
+    }
+
+    /** Must be called when the session leaves the screen, or the engine leaks. */
+    fun release() {
+        try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
+        awaiting.keys.toList().forEach { settle(it) }
+        tts = null
+        ttsReady = false
+    }
 
     // ==========================================
     // HAPTIC PATTERN ENGINE

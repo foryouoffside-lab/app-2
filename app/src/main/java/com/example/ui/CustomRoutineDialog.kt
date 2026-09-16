@@ -50,6 +50,7 @@ import com.example.data.CustomWorkoutEntity
 import com.example.model.ExercisePhase
 import com.example.model.ExerciseType
 import com.example.model.Protocol
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.AmberPrimary
 import com.example.ui.theme.BiologicalTeal
 import com.example.ui.theme.CharcoalSurface
@@ -68,41 +69,15 @@ data class BuilderPhaseItem(
     val benefit: String = "Ergonomic visual-motor reset"
 )
 
+// One drill while the drill environment is being designed. The others are coming back
+// once the customisable-drill UI is agreed; they have no visual of their own right now.
 val AVAILABLE_DRILL_TEMPLATES = listOf(
     BuilderPhaseItem(
         exerciseType = ExerciseType.RAPID_BLINK,
-        title = "Conscious Blink Reset",
-        instruction = "Soft close, hold 2s, open. Replenish the tear film.",
-        durationSeconds = 20,
-        benefit = "Replenishes corneal tear film."
-    ),
-    BuilderPhaseItem(
-        exerciseType = ExerciseType.ACCOMMODATION_SHIFT,
-        title = "20-20-20 Horizon Focus",
-        instruction = "Look at an object at least 20 feet away. Release ciliary tension.",
-        durationSeconds = 20,
-        benefit = "Breaks ciliary muscle spasm."
-    ),
-    BuilderPhaseItem(
-        exerciseType = ExerciseType.SMOOTH_PURSUIT,
-        title = "Smooth Pursuit Sweep",
-        instruction = "Track the continuous amber target without moving your head.",
-        durationSeconds = 30,
-        benefit = "Stimulates lateral extraocular muscles."
-    ),
-    BuilderPhaseItem(
-        exerciseType = ExerciseType.SACCADE_JUMP,
-        title = "4-Quadrant Rapid Saccades",
-        instruction = "Jump your visual focus instantaneously between target anchors.",
-        durationSeconds = 25,
-        benefit = "Sharpens ballistic saccadic re-fixation."
-    ),
-    BuilderPhaseItem(
-        exerciseType = ExerciseType.PALMING_BREATH,
-        title = "Orbital Cup Palming",
-        instruction = "Warm hands, cup lightly over closed orbits. Breathe steadily in darkout.",
-        durationSeconds = 35,
-        benefit = "Relaxes photoreceptor metabolic demand."
+        title = "Blink Reset",
+        instruction = "Close 2s · squeeze 2s · open",
+        durationSeconds = 90,
+        benefit = "Restores the tear film after low-blink screen time."
     )
 )
 
@@ -112,12 +87,12 @@ fun CustomRoutineBuilderDialog(
     onSaveAndLaunch: (Protocol, CustomWorkoutEntity) -> Unit
 ) {
     var routineName by remember { mutableStateOf("My Custom De-Strain") }
+    // Seeded from whatever templates exist. Fixed indices crashed the builder every time
+    // the template list was trimmed.
     val selectedPhases = remember {
-        mutableStateListOf(
-            AVAILABLE_DRILL_TEMPLATES[0].copy(id = UUID.randomUUID().toString(), durationSeconds = 15),
-            AVAILABLE_DRILL_TEMPLATES[1].copy(id = UUID.randomUUID().toString(), durationSeconds = 20),
-            AVAILABLE_DRILL_TEMPLATES[2].copy(id = UUID.randomUUID().toString(), durationSeconds = 25)
-        )
+        mutableStateListOf<BuilderPhaseItem>().apply {
+            AVAILABLE_DRILL_TEMPLATES.take(3).forEach { add(it.copy(id = UUID.randomUUID().toString())) }
+        }
     }
     var showDrillPicker by remember { mutableStateOf(false) }
 
@@ -127,7 +102,7 @@ fun CustomRoutineBuilderDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = CharcoalSurface,
+            color = AppTheme.colors.surface,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 16.dp)
@@ -146,7 +121,7 @@ fun CustomRoutineBuilderDialog(
                     Column {
                         Text(
                             text = "CUSTOM STUDIO",
-                            color = AmberPrimary,
+                            color = AppTheme.colors.amber,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.5.sp,
@@ -154,7 +129,7 @@ fun CustomRoutineBuilderDialog(
                         )
                         Text(
                             text = "Routine Composer",
-                            color = TextHighEmphasis,
+                            color = AppTheme.colors.textHigh,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -163,7 +138,7 @@ fun CustomRoutineBuilderDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = TextMediumEmphasis
+                            tint = AppTheme.colors.textMedium
                         )
                     }
                 }
@@ -174,14 +149,14 @@ fun CustomRoutineBuilderDialog(
                 OutlinedTextField(
                     value = routineName,
                     onValueChange = { routineName = it },
-                    label = { Text("Routine Name", color = TextMediumEmphasis) },
+                    label = { Text("Routine Name", color = AppTheme.colors.textMedium) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextHighEmphasis,
-                        unfocusedTextColor = TextHighEmphasis,
-                        focusedBorderColor = AmberPrimary,
-                        unfocusedBorderColor = MutedBorder,
-                        focusedLabelColor = AmberPrimary
+                        focusedTextColor = AppTheme.colors.textHigh,
+                        unfocusedTextColor = AppTheme.colors.textHigh,
+                        focusedBorderColor = AppTheme.colors.amber,
+                        unfocusedBorderColor = AppTheme.colors.border,
+                        focusedLabelColor = AppTheme.colors.amber
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -193,7 +168,7 @@ fun CustomRoutineBuilderDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(ZincSurfaceElevated)
+                        .background(AppTheme.colors.surfaceElevated)
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -203,12 +178,12 @@ fun CustomRoutineBuilderDialog(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(if (isOverMaxLimit) Color(0xFFEF4444) else BiologicalTeal)
+                                .background(if (isOverMaxLimit) Color(0xFFEF4444) else AppTheme.colors.teal)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "TIME BUDGET: ${totalTime}s",
-                            color = if (isOverMaxLimit) Color(0xFFEF4444) else TextHighEmphasis,
+                            color = if (isOverMaxLimit) Color(0xFFEF4444) else AppTheme.colors.textHigh,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
@@ -216,7 +191,7 @@ fun CustomRoutineBuilderDialog(
                     }
                     Text(
                         text = if (isOverMaxLimit) "EXCEEDS 360s LIMIT" else "SAFE LIMIT (≤ 360s)",
-                        color = if (isOverMaxLimit) Color(0xFFEF4444) else TextMediumEmphasis,
+                        color = if (isOverMaxLimit) Color(0xFFEF4444) else AppTheme.colors.textMedium,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -233,7 +208,7 @@ fun CustomRoutineBuilderDialog(
                 ) {
                     itemsIndexed(selectedPhases) { index, phase ->
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = ZincSurfaceElevated.copy(alpha = 0.6f)),
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surfaceElevated.copy(alpha = 0.6f)),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -247,7 +222,7 @@ fun CustomRoutineBuilderDialog(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = "${index + 1}",
-                                        color = AmberPrimary,
+                                        color = AppTheme.colors.amber,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = FontFamily.Monospace,
@@ -256,13 +231,13 @@ fun CustomRoutineBuilderDialog(
                                     Column {
                                         Text(
                                             text = phase.title,
-                                            color = TextHighEmphasis,
+                                            color = AppTheme.colors.textHigh,
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         Text(
                                             text = "${phase.durationSeconds} seconds",
-                                            color = TextMediumEmphasis,
+                                            color = AppTheme.colors.textMedium,
                                             fontSize = 11.sp
                                         )
                                     }
@@ -271,7 +246,7 @@ fun CustomRoutineBuilderDialog(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     // Quick Duration adjust
                                     Surface(
-                                        color = CharcoalSurface,
+                                        color = AppTheme.colors.surface,
                                         shape = RoundedCornerShape(6.dp),
                                         modifier = Modifier.clickable {
                                             val newDuration = when (phase.durationSeconds) {
@@ -286,7 +261,7 @@ fun CustomRoutineBuilderDialog(
                                     ) {
                                         Text(
                                             text = "+ time",
-                                            color = BiologicalTeal,
+                                            color = AppTheme.colors.teal,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -322,8 +297,8 @@ fun CustomRoutineBuilderDialog(
                 Button(
                     onClick = { showDrillPicker = true },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = ZincSurfaceElevated,
-                        contentColor = TextHighEmphasis
+                        containerColor = AppTheme.colors.surfaceElevated,
+                        contentColor = AppTheme.colors.textHigh
                     ),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -369,7 +344,7 @@ fun CustomRoutineBuilderDialog(
                     },
                     enabled = !isOverMaxLimit && selectedPhases.isNotEmpty(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberPrimary,
+                        containerColor = AppTheme.colors.amber,
                         contentColor = Color.Black
                     ),
                     shape = RoundedCornerShape(12.dp),
@@ -394,7 +369,7 @@ fun CustomRoutineBuilderDialog(
         Dialog(onDismissRequest = { showDrillPicker = false }) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = CharcoalSurface,
+                color = AppTheme.colors.surface,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 20.dp)
@@ -402,7 +377,7 @@ fun CustomRoutineBuilderDialog(
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
                         text = "Select Exercise Module",
-                        color = TextHighEmphasis,
+                        color = AppTheme.colors.textHigh,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -410,7 +385,7 @@ fun CustomRoutineBuilderDialog(
 
                     AVAILABLE_DRILL_TEMPLATES.forEach { template ->
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = ZincSurfaceElevated),
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surfaceElevated),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -427,13 +402,13 @@ fun CustomRoutineBuilderDialog(
                                 ) {
                                     Text(
                                         text = template.title,
-                                        color = TextHighEmphasis,
+                                        color = AppTheme.colors.textHigh,
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 13.sp
                                     )
                                     Text(
                                         text = "${template.durationSeconds}s",
-                                        color = AmberPrimary,
+                                        color = AppTheme.colors.amber,
                                         fontFamily = FontFamily.Monospace,
                                         fontSize = 12.sp
                                     )
@@ -441,7 +416,7 @@ fun CustomRoutineBuilderDialog(
                                 Spacer(modifier = Modifier.height(3.dp))
                                 Text(
                                     text = template.instruction,
-                                    color = TextMediumEmphasis,
+                                    color = AppTheme.colors.textMedium,
                                     fontSize = 11.sp
                                 )
                             }

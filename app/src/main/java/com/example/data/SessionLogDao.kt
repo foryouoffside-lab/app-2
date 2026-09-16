@@ -60,4 +60,5 @@ interface SessionLogDao {
 
     @Query("DELETE FROM progression_events")
     suspend fun clearAllProgressionEvents()
+
 }

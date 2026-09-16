@@ -7,6 +7,7 @@ plugins {
   alias(libs.plugins.roborazzi)
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
+  alias(libs.plugins.detekt)
 }
 
 android {
@@ -72,6 +73,12 @@ secrets {
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
+
+detekt {
+  buildUponDefaultConfig = true
+  config.from(file("${rootDir}/config/detekt/detekt.yml"))
+  ignoreFailures = true
+}
 
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
