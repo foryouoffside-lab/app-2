@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,17 +21,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,13 +53,16 @@ import com.example.model.calculateHabitStats
 import com.example.model.DailyRecommendation
 import com.example.model.Protocol
 import com.example.model.StudioDrill
+import com.example.model.StudioDrillRepository
 import com.example.model.WellnessProfile
 import com.example.model.localDayKey
+import com.example.model.toProtocol
 import com.example.ui.components.HeroRoutineCard
 import com.example.ui.components.RoutineCard
 import com.example.ui.drill.DrillSheet
 import com.example.ui.theme.AppTheme
 import java.util.Calendar
+import kotlinx.coroutines.launch
 
 /**
  * Home is deliberately one decision: where today stands, today's drill, then the
@@ -66,13 +75,31 @@ fun TodayScreen(
     sessionLogDao: SessionLogDao,
     profile: WellnessProfile,
     onStartProtocol: (Protocol) -> Unit,
+    onStartQueue: (queue: List<Protocol>, skipInstructions: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val allLogs by sessionLogDao.getAllLogs().collectAsStateWithLifecycle(initialValue = emptyList())
+    val customWorkouts by sessionLogDao.getAllCustomWorkouts().collectAsStateWithLifecycle(initialValue = emptyList())
+    val coroutineScope = rememberCoroutineScope()
     val dayKey = localDayKey()
     val plan = remember(profile) { DailyPlanRepository.forDay(profile) }
     val stats = remember(allLogs, dayKey) { calculateHabitStats(allLogs) }
     var openHabit by remember { mutableStateOf<StudioDrill?>(null) }
+    val guidedQueue = remember(plan) { plan.guided.map { it.protocol } }
+    // A stand-in Protocol built only to feed HeroRoutineCard its title and total time; it
+    // is never handed to a drill screen, so it needs no phases or evidence id of its own --
+    // the real drills are what onStart launches.
+    val guidedSetSummary = remember(guidedQueue, dayKey) {
+        Protocol(
+            id = "daily_set_$dayKey",
+            title = "Today's set",
+            tag = "",
+            totalSeconds = guidedQueue.sumOf { it.totalSeconds },
+            description = "",
+            phases = emptyList(),
+            targetSymptom = ""
+        )
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(AppTheme.colors.bg),
@@ -97,17 +124,17 @@ fun TodayScreen(
         if (!plan.isPausedForSafety) {
             item { DailyProgressStrip(stats) }
 
-            val first = plan.guided.firstOrNull()
-            if (first != null) {
+            if (plan.guided.isNotEmpty()) {
                 item { SectionTitle("Today's guided set") }
                 item {
                     HeroRoutineCard(
-                        protocol = first.protocol,
-                        onStart = { onStartProtocol(first.protocol) },
+                        protocol = guidedSetSummary,
+                        onStart = { onStartQueue(guidedQueue, false) },
+                        label = "TODAY'S SET · ${plan.guided.size} exercises",
                         modifier = Modifier.testTag("daily_primary_drill")
                     )
                 }
-                items(plan.guided.drop(1), key = { it.drill.id }) { recommendation ->
+                items(plan.guided, key = { it.drill.id }) { recommendation ->
                     RoutineCard(
                         protocol = recommendation.protocol,
                         icon = Icons.Default.Spa,
@@ -118,6 +145,31 @@ fun TodayScreen(
                 }
             } else {
                 item { RestDayCard() }
+            }
+
+            // The routines a person built themselves, kept next to today's set rather than
+            // buried in the drill library on Train -- Train is a library to browse, this is
+            // where you come back to actually run the thing you built.
+            if (customWorkouts.isNotEmpty()) {
+                item { SectionTitle("My Custom Routines") }
+                items(customWorkouts, key = { it.workoutId }) { workout ->
+                    // Each id is a real Studio drill, so replay gets the same stimulus,
+                    // evidence id and how-to pages the drill has everywhere else in the app.
+                    val queue = remember(workout.serializedDrills) {
+                        workout.serializedDrills.split(",")
+                            .mapNotNull { StudioDrillRepository.byId(it.trim()) }
+                            .map { it.toProtocol() }
+                    }
+                    CustomRoutineCard(
+                        title = workout.title,
+                        subtitle = "${workout.estimatedTotalSeconds}s • ${queue.size} drills",
+                        onDelete = {
+                            coroutineScope.launch { sessionLogDao.deleteCustomWorkout(workout.workoutId) }
+                        },
+                        onStart = { onStartQueue(queue, false) },
+                        canStart = queue.isNotEmpty()
+                    )
+                }
             }
 
             if (plan.habits.isNotEmpty()) {
@@ -260,6 +312,65 @@ private fun HabitPlanCard(recommendation: DailyRecommendation, onOpen: () -> Uni
                 tint = AppTheme.colors.textMuted,
                 modifier = Modifier.size(20.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun CustomRoutineCard(
+    title: String,
+    subtitle: String,
+    onDelete: () -> Unit,
+    onStart: () -> Unit,
+    canStart: Boolean
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surface),
+        border = BorderStroke(1.dp, AppTheme.colors.border),
+        modifier = Modifier.fillMaxWidth().testTag("custom_routine_${title}")
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(14.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(AppTheme.colors.iris.copy(alpha = 0.15f))
+            ) {
+                Icon(Icons.Default.Tune, contentDescription = null, tint = AppTheme.colors.iris, modifier = Modifier.size(20.dp))
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = AppTheme.colors.textHigh, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(subtitle, color = AppTheme.colors.textMedium, fontSize = 12.sp)
+            }
+
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = AppTheme.colors.textMuted,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(AppTheme.colors.surfaceElevated)
+                    .clickable(enabled = canStart, onClick = onStart)
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = AppTheme.colors.amber, modifier = Modifier.size(20.dp))
+            }
         }
     }
 }

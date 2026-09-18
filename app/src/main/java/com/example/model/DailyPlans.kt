@@ -102,13 +102,17 @@ fun localDayKey(
  * apply, the most clinically specific one wins rather than showing every option at once
  * or alternating between them.
  *
- * The guided set is sized to a single evidence-based combination rather than to how much
- * time a person says they have: complete blink practice (90s, the trial-optimised dose)
- * plus the 20-20-20 break (20s, one break is the whole dose) plus one supporting comfort
- * item (palming, 2 minutes) lands at about 3:50 for the typical screen-use profile -- a
- * daily set worth actually finishing, not a list stretched or trimmed to a stated budget.
- * A diagnosed lid condition swaps in the longer warm-compress routine instead, because
- * that need is genuinely a longer one, not because the day changed.
+ * The guided set is sized to the evidence-based items that actually match the answers
+ * given, not to a stated time budget: every supporting item below is included because a
+ * specific answer calls for it, and a profile that reports nothing beyond ordinary screen
+ * use still gets only blink practice (90s) plus the 20-20-20 break (20s) plus one comfort
+ * item (about 3:50 total) -- there is no padding added to reach a number. A profile that
+ * reports more than one matching need -- sustained screen time and a diagnosed lid
+ * condition and tension headaches, say -- has each of those needs answered by its own
+ * item rather than being capped to a single "supporting" slot, so the set can run up to
+ * about eight minutes (blink 90s + break 20s + warm compress 240s + palming 120s) for
+ * someone whose answers genuinely call for all of it. The set is still a pure function of
+ * the profile: the same answers give the same set every day.
  */
 object DailyPlanRepository {
 
@@ -183,28 +187,27 @@ object DailyPlanRepository {
             isCore = true
         )
 
-        // At most one supporting comfort item, so the set stays a single evidence-based
-        // combination (about four minutes) rather than every option stacked at once.
-        when {
-            ClinicalContext.DRY_EYE_OR_LID_DISEASE in profile.clinicalContexts -> addGuided(
-                guided,
-                "warm_compress",
-                "Included because you reported diagnosed dry-eye or lid disease.",
-                isCore = false
-            )
-            WellnessSymptom.TENSION_HEADACHE in profile.symptoms -> addGuided(
-                guided,
-                "palming",
-                "Included for reported tension or headache around the eyes.",
-                isCore = false
-            )
-            screenNeed -> addGuided(
-                guided,
-                "palming",
-                "Included as a comfort break for sustained screen use; short-term comfort, not stronger eyesight.",
-                isCore = false
-            )
-        }
+        // Every supporting item that matches a reported need is included -- a person with
+        // several needs gets each one answered, rather than being capped to whichever one
+        // is checked first. Each condition below reaches a different drill id, so nothing
+        // is ever added twice.
+        if (ClinicalContext.DRY_EYE_OR_LID_DISEASE in profile.clinicalContexts) addGuided(
+            guided,
+            "warm_compress",
+            "Included because you reported diagnosed dry-eye or lid disease.",
+            isCore = false
+        )
+        if (WellnessSymptom.TENSION_HEADACHE in profile.symptoms) addGuided(
+            guided,
+            "palming",
+            "Included for reported tension or headache around the eyes.",
+            isCore = false
+        ) else if (screenNeed) addGuided(
+            guided,
+            "palming",
+            "Included as a comfort break for sustained screen use; short-term comfort, not stronger eyesight.",
+            isCore = false
+        )
 
         val coreHabits = mutableListOf<DailyRecommendation>()
         if (profile.age < 18) addHabit(

@@ -102,7 +102,21 @@ class BreakReminderReceiver : BroadcastReceiver() {
 /** Rebuilds the one pending alarm after reboot, app replacement or a wall-clock change. */
 class BreakReminderRescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // These are all protected system broadcasts, but the filter itself doesn't stop a
+        // same-app or pre-O_MR1-style spoof from reaching an unchecked exported=false
+        // receiver -- confirming the action costs nothing since we already list every
+        // action we're prepared to act on in the manifest.
+        if (intent.action !in RESCHEDULE_ACTIONS) return
         BreakReminderScheduler.update(context, UserPrefs(context).breakReminderSettings)
         ScreenUseWatchService.sync(context)
+    }
+
+    private companion object {
+        val RESCHEDULE_ACTIONS = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED
+        )
     }
 }

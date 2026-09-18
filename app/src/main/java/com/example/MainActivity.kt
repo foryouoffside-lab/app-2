@@ -29,7 +29,7 @@ import androidx.core.app.ActivityCompat
 import com.example.data.AppDatabase
 import com.example.data.SessionLog
 import com.example.model.Protocol
-import com.example.ui.drill.DrillScreen
+import com.example.ui.drill.DrillQueueScreen
 import com.example.ui.AppPillarTab
 import com.example.ui.MainAppContainer
 import com.example.ui.screens.OnboardingScreen
@@ -41,6 +41,9 @@ import com.example.util.BreakReminderScheduler
 import com.example.util.ScreenUseWatchService
 import com.example.util.BreakReminderSettings
 import kotlinx.coroutines.launch
+
+/** A drill session in progress: the drills left to run, and whether they skip the how-to. */
+private data class ActiveQueue(val protocols: List<Protocol>, val skipInstructions: Boolean = false)
 
 class MainActivity : ComponentActivity() {
     private lateinit var prefs: UserPrefs
@@ -62,7 +65,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             EyeRestTheme(themeMode = prefs.themeMode, trueBlackEnabled = prefs.trueBlackEnabled) {
                 val coroutineScope = rememberCoroutineScope()
-                var activeProtocol by remember { mutableStateOf<Protocol?>(null) }
+                var activeQueue by remember { mutableStateOf<ActiveQueue?>(null) }
                 var editingWellnessProfile by remember { mutableStateOf(false) }
                 // Lives out here so closing a drill returns to the tab it was started from.
                 var activeTab by remember { mutableStateOf(AppPillarTab.TODAY) }
@@ -99,31 +102,33 @@ class MainActivity : ComponentActivity() {
                         return@Surface
                     }
                     AnimatedContent(
-                        targetState = activeProtocol,
+                        targetState = activeQueue,
                         transitionSpec = { fadeIn() togetherWith fadeOut() },
                         label = "screen_transition"
-                    ) { protocol ->
-                        if (protocol != null) {
-                            DrillScreen(
-                                protocol = protocol,
+                    ) { queue ->
+                        if (queue != null) {
+                            DrillQueueScreen(
+                                queue = queue.protocols,
                                 voiceDefault = prefs.voiceEnabled,
                                 hapticsEnabled = prefs.hapticsEnabled,
+                                skipInstructions = queue.skipInstructions,
                                 targetColor = prefs.targetColor,
                                 targetSpeed = prefs.targetSpeed,
                                 onTargetSpeedChange = { prefs.updateTargetSpeed(it) },
-                                onClose = { activeProtocol = null },
-                                onCompleted = { protocolId, duration ->
+                                onClose = { activeQueue = null },
+                                onDrillCompleted = { protocolId, duration ->
+                                    val title = queue.protocols.firstOrNull { it.id == protocolId }?.title ?: protocolId
                                     coroutineScope.launch {
                                         sessionLogDao.insertLog(
                                             SessionLog(
                                                 protocolId = protocolId,
-                                                protocolTitle = protocol.title,
+                                                protocolTitle = title,
                                                 durationSeconds = duration
                                             )
                                         )
                                     }
-                                    activeProtocol = null
-                                }
+                                },
+                                onQueueFinished = { activeQueue = null }
                             )
                         } else {
                             MainAppContainer(
@@ -146,7 +151,10 @@ class MainActivity : ComponentActivity() {
                                 onBreakReminderSettingsChange = ::updateBreakReminders,
                                 onRetakeAssessment = { editingWellnessProfile = true },
                                 onStartProtocol = { selected ->
-                                    activeProtocol = selected
+                                    activeQueue = ActiveQueue(listOf(selected))
+                                },
+                                onStartQueue = { selected, skipInstructions ->
+                                    activeQueue = ActiveQueue(selected, skipInstructions)
                                 },
                                 activeTab = activeTab,
                                 onTabChange = { activeTab = it }

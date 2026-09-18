@@ -1,6 +1,7 @@
 package com.example.util
 
 import android.content.Context
+import java.util.Locale
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -44,7 +45,7 @@ val TARGET_SPEED_RANGE = 0.4f..2.0f
 const val DEFAULT_TARGET_SPEED = 1.0f
 
 /** The multiplier as the user reads it: "1.0x" is the pace the drill was written at. */
-fun targetSpeedLabel(speed: Float): String = String.format("%.1f×", speed)
+fun targetSpeedLabel(speed: Float): String = String.format(Locale.ROOT, "%.1f×", speed)
 
 /** Adults only: this is a self-directed comfort tool, not a paediatric one. */
 val SUPPORTED_AGES = 18..100

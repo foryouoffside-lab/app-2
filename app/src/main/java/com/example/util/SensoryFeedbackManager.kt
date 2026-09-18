@@ -185,7 +185,12 @@ class SensoryFeedbackManager(private val context: Context) {
         if (ttsReady) {
             speakNow(text, interrupt)
         } else {
-            scope.launch { if (awaitVoiceReady()) speakNow(text, interrupt) }
+            // Captured before the wait: if stopVoice() runs while this is still waiting on
+            // a cold-start engine -- e.g. the user backed out of the step that queued this
+            // cue before it ever got to speak -- the epoch will have moved on, and this
+            // stale line must not speak over whatever step replaced it.
+            val epoch = speechEpoch.get()
+            scope.launch { if (awaitVoiceReady() && speechEpoch.get() == epoch) speakNow(text, interrupt) }
         }
     }
 

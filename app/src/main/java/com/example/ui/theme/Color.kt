@@ -38,7 +38,9 @@ val MintBreeze = Color(0xFF34D399)
 // which is legible without the glare that maxed-out contrast produces at night.
 val TextHighEmphasis = Color(0xFFEDE9E6)
 val TextMediumEmphasis = Color(0xFFA8A29E)
-val TextMuted = Color(0xFF78716C)
+// Was #78716C (~3.9:1 on ObsidianBg) -- fails WCAG AA (4.5:1) for the small captions and
+// disclaimers this role is used on. Lightened to clear AA with margin (~5.4:1).
+val TextMuted = Color(0xFF8F8880)
 
 val EmeraldSuccess = Color(0xFF10B981)
 val RoseCritical = Color(0xFFF43F5E)
@@ -57,7 +59,9 @@ val TealInkContainer = Color(0xFFD5F2EE)
 
 val InkHighEmphasis = Color(0xFF141A26)
 val InkMediumEmphasis = Color(0xFF556070)
-val InkMuted = Color(0xFF8A94A5)
+// Was #8A94A5 (~2.9:1 on PaperBg) -- well below WCAG AA (4.5:1) for small text. Darkened
+// to clear AA with margin (~5.5:1), same slate-blue hue.
+val InkMuted = Color(0xFF5A6578)
 
 val EmeraldInk = Color(0xFF047857)
 val RoseInk = Color(0xFFBE123C)

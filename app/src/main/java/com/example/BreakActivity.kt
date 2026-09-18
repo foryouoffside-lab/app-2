@@ -1,5 +1,6 @@
 package com.example
 
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -49,8 +50,18 @@ class BreakActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Arrives over a lock screen: the break is worthless if it waits for an unlock.
-        setShowWhenLocked(true)
-        setTurnScreenOn(true)
+        // setShowWhenLocked/setTurnScreenOn need API 27; minSdk is 24, so anything older
+        // needs the equivalent window flags instead or this crashes on launch.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val prefs = UserPrefs(this)
@@ -89,7 +100,7 @@ private fun BreakCountdown(
     LaunchedEffect(Unit) {
         // Nothing to say until the engine is up, and nothing worth delaying the break for.
         feedback.awaitVoiceReady()
-        feedback.speak("Look at something far away.")
+        feedback.speak("Look at something about 20 feet away.")
         while (remaining > 0) {
             delay(1_000)
             remaining -= 1

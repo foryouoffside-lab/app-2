@@ -45,6 +45,26 @@ class DailyPlanTest {
     }
 
     @Test
+    fun `several matching needs each get their own item, up to about eight minutes`() {
+        val plan = DailyPlanRepository.forDay(
+            profile(
+                screenTime = ScreenTimeBand.FOUR_TO_EIGHT,
+                symptoms = setOf(WellnessSymptom.TENSION_HEADACHE),
+                clinicalContexts = setOf(ClinicalContext.DRY_EYE_OR_LID_DISEASE)
+            )
+        )
+
+        // Every one of the four evidence-linked items answers a specific reported need --
+        // none is added twice, and none is padding.
+        assertEquals(
+            listOf("complete_blink_squeeze", "screen_break_20_20_20", "warm_compress", "palming"),
+            plan.guided.map { it.drill.id }
+        )
+        // 90s blink + 20s break + 240s warm compress + 120s palming = 7:50.
+        assertEquals(470, plan.guided.sumOf { it.protocol.totalSeconds })
+    }
+
+    @Test
     fun `glasses change advice and do not invent an eye exercise`() {
         val plan = DailyPlanRepository.forDay(
             profile(screenTime = ScreenTimeBand.UNDER_TWO, correction = VisionCorrection.GLASSES)

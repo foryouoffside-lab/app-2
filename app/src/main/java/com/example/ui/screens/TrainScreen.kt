@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
@@ -59,8 +58,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.CustomWorkoutEntity
 import com.example.data.SessionLogDao
-import com.example.model.ExercisePhase
-import com.example.model.ExerciseType
 import com.example.model.EyeIssue
 import com.example.model.Practice
 import com.example.model.Protocol
@@ -82,6 +79,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun TrainScreen(
     onStartProtocol: (Protocol) -> Unit,
+    onStartQueue: (queue: List<Protocol>, skipInstructions: Boolean) -> Unit,
     sessionLogDao: SessionLogDao,
     targetColor: TargetColor = TargetColor.AMBER,
     targetSpeed: Float = DEFAULT_TARGET_SPEED,
@@ -109,12 +107,12 @@ fun TrainScreen(
     if (showBuilderDialog) {
         CustomRoutineBuilderDialog(
             onDismiss = { showBuilderDialog = false },
-            onSaveAndLaunch = { protocol, entity ->
+            onSaveAndLaunch = { protocols, entity, skipInstructions ->
                 coroutineScope.launch {
                     sessionLogDao.insertCustomWorkout(entity)
                 }
                 showBuilderDialog = false
-                onStartProtocol(protocol)
+                onStartQueue(protocols, skipInstructions)
             }
         )
     }
@@ -264,131 +262,8 @@ fun TrainScreen(
             }
         }
 
-        // Custom Routines List (if any)
-        if (customWorkouts.isNotEmpty()) {
-            item {
-                Text(
-                    text = "My Custom Routines",
-                    color = AppTheme.colors.textHigh,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            items(customWorkouts, key = { it.workoutId }) { workout ->
-                val phases = workout.serializedDrills.split(",").mapNotNull { part ->
-                    val tokens = part.split(":")
-                    if (tokens.size == 2) {
-                        val type = try { ExerciseType.valueOf(tokens[0]) } catch (_: Exception) { ExerciseType.RAPID_BLINK }
-                        val duration = tokens[1].toIntOrNull() ?: 20
-                        ExercisePhase(
-                            title = type.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
-                            instruction = "Follow the guided eye exercise pacing smoothly.",
-                            durationSeconds = duration,
-                            type = type,
-                            physiologicalBenefit = "Customized ocular exercise phase."
-                        )
-                    } else null
-                }.ifEmpty {
-                    listOf(
-                        ExercisePhase(
-                            title = "Custom Drill",
-                            instruction = "Relax your eyes.",
-                            durationSeconds = workout.estimatedTotalSeconds,
-                            type = ExerciseType.RAPID_BLINK,
-                            physiologicalBenefit = "Custom relaxation."
-                        )
-                    )
-                }
-
-                val protocol = Protocol(
-                    id = workout.workoutId,
-                    title = workout.title,
-                    tag = "Custom",
-                    totalSeconds = workout.estimatedTotalSeconds,
-                    description = "Personalized routine with ${phases.size} phases.",
-                    phases = phases,
-                    targetSymptom = "Custom Eye Care"
-                )
-
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surface),
-                    border = BorderStroke(1.dp, AppTheme.colors.border),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp)
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(AppTheme.colors.iris.copy(alpha = 0.15f))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Tune,
-                                contentDescription = null,
-                                tint = AppTheme.colors.iris,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = workout.title,
-                                color = AppTheme.colors.textHigh,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "${protocol.totalSeconds}s • ${phases.size} phases",
-                                color = AppTheme.colors.textMedium,
-                                fontSize = 12.sp
-                            )
-                        }
-
-                        IconButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    sessionLogDao.deleteCustomWorkout(workout.workoutId)
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = AppTheme.colors.textMuted,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(AppTheme.colors.surfaceElevated)
-                                .clickable { onStartProtocol(protocol) }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Play",
-                                tint = AppTheme.colors.amber,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        // Saved custom routines live on Home now, next to today's set -- this screen stays
+        // a pure drill library, so "New routine" is the only routine-shaped thing here.
 
         // Grouped by the complaint each one is offered for, because that is the question
         // somebody arrives with. A flat list of 25 made you already know which drill you

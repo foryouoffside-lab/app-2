@@ -78,6 +78,7 @@ class TodayScreenScreenshotTest {
                     onBreakReminderSettingsChange = {},
                     onRetakeAssessment = {},
                     onStartProtocol = {},
+                    onStartQueue = { _, _ -> },
                     activeTab = AppPillarTab.TODAY,
                     onTabChange = {}
                 )

@@ -125,7 +125,14 @@ class ScreenUseWatchService : Service() {
             val settings = UserPrefs(context).breakReminderSettings
             val intent = Intent(context, ScreenUseWatchService::class.java)
             if (settings.smartEnabled && hasUsageAccess(context)) {
-                context.startForegroundService(intent)
+                // startForegroundService needs API 26; minSdk is 24, so plain startService
+                // is the only option below that -- onCreate still promotes itself with
+                // startForeground() either way.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
             } else {
                 context.stopService(intent)
             }
@@ -137,11 +144,14 @@ class ScreenUseWatchService : Service() {
          */
         fun hasUsageAccess(context: Context): Boolean {
             val ops = context.getSystemService(AppOpsManager::class.java) ?: return false
-            val mode = ops.unsafeCheckOpNoThrow(
-                AppOpsManager.OPSTR_GET_USAGE_STATS,
-                Process.myUid(),
-                context.packageName
-            )
+            // unsafeCheckOpNoThrow needs API 29; minSdk is 24, so older platforms fall back
+            // to the deprecated equivalent rather than crashing on the usage-access check.
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+            } else {
+                @Suppress("DEPRECATION")
+                ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+            }
             return mode == AppOpsManager.MODE_ALLOWED
         }
     }

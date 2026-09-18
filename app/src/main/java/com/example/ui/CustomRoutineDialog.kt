@@ -1,5 +1,6 @@
 package com.example.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
@@ -30,6 +33,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,55 +48,42 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.CustomWorkoutEntity
-import com.example.model.ExercisePhase
-import com.example.model.ExerciseType
+import com.example.model.Practice
 import com.example.model.Protocol
+import com.example.model.StudioDrill
+import com.example.model.StudioDrillRepository
+import com.example.model.toProtocol
+import com.example.ui.drill.formatLength
 import com.example.ui.theme.AppTheme
-import com.example.ui.theme.ZincSurfaceElevated
-import java.util.UUID
 
-data class BuilderPhaseItem(
-    val id: String = UUID.randomUUID().toString(),
-    val exerciseType: ExerciseType,
-    val title: String,
-    val instruction: String,
-    var durationSeconds: Int = 20,
-    val benefit: String = "Ergonomic visual-motor reset"
-)
-
-// One drill while the drill environment is being designed. The others are coming back
-// once the customisable-drill UI is agreed; they have no visual of their own right now.
-val AVAILABLE_DRILL_TEMPLATES = listOf(
-    BuilderPhaseItem(
-        exerciseType = ExerciseType.RAPID_BLINK,
-        title = "Blink Reset",
-        instruction = "Close 2s · squeeze 2s · open",
-        durationSeconds = 90,
-        benefit = "Restores the tear film after low-blink screen time."
-    )
-)
-
+/**
+ * A routine built from real Studio drills, in the order picked.
+ *
+ * Each selection becomes its own [Protocol] via [toProtocol] rather than a hand-authored
+ * phase: that is what carries the drill's real stimulus, evidence id and how-to pages
+ * into the player, instead of every custom-routine phase silently rendering as the blink
+ * animation the way a freeform phase list used to.
+ */
 @Composable
 fun CustomRoutineBuilderDialog(
     onDismiss: () -> Unit,
-    onSaveAndLaunch: (Protocol, CustomWorkoutEntity) -> Unit
+    onSaveAndLaunch: (List<Protocol>, CustomWorkoutEntity, skipInstructions: Boolean) -> Unit
 ) {
-    var routineName by remember { mutableStateOf("My Custom De-Strain") }
-    // Seeded from whatever templates exist. Fixed indices crashed the builder every time
-    // the template list was trimmed.
-    val selectedPhases = remember {
-        mutableStateListOf<BuilderPhaseItem>().apply {
-            AVAILABLE_DRILL_TEMPLATES.take(3).forEach { add(it.copy(id = UUID.randomUUID().toString())) }
-        }
+    var routineName by remember { mutableStateOf("My Custom Routine") }
+    val availableDrills = remember {
+        StudioDrillRepository.drills.filter { it.practice == Practice.GUIDED }
     }
+    val selectedDrills = remember { mutableStateListOf<StudioDrill>() }
+    var skipInstructions by remember { mutableStateOf(false) }
     var showDrillPicker by remember { mutableStateOf(false) }
 
-    val totalTime = selectedPhases.sumOf { it.durationSeconds }
-    val isOverMaxLimit = totalTime > 360 // Stage 7 safety ceiling: max 6 minutes
+    val totalTime = selectedDrills.sumOf { it.dose.totalSeconds }
+    val isOverMaxLimit = totalTime > 360 // Safety ceiling: max 6 minutes for a self-composed set
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -176,7 +168,7 @@ fun CustomRoutineBuilderDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "TIME BUDGET: ${totalTime}s",
+                            text = "TIME BUDGET: ${formatLength(totalTime)}",
                             color = if (isOverMaxLimit) Color(0xFFEF4444) else AppTheme.colors.textHigh,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -184,23 +176,65 @@ fun CustomRoutineBuilderDialog(
                         )
                     }
                     Text(
-                        text = if (isOverMaxLimit) "EXCEEDS 360s LIMIT" else "SAFE LIMIT (≤ 360s)",
+                        text = if (isOverMaxLimit) "EXCEEDS 6 MIN LIMIT" else "SAFE LIMIT (≤ 6 min)",
                         color = if (isOverMaxLimit) Color(0xFFEF4444) else AppTheme.colors.textMedium,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Skip-instructions toggle: an experienced user can run straight through
+                // without the how-to walkthrough this same routine would otherwise show.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(AppTheme.colors.surfaceElevated)
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "Skip instructions",
+                            color = AppTheme.colors.textHigh,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Go straight into each drill, no how-to pages.",
+                            color = AppTheme.colors.textMedium,
+                            fontSize = 11.sp
+                        )
+                    }
+                    Switch(
+                        checked = skipInstructions,
+                        onCheckedChange = { skipInstructions = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = AppTheme.colors.bg,
+                            checkedTrackColor = AppTheme.colors.amber,
+                            // The row behind this switch is surfaceElevated, so the
+                            // unchecked track has to read against that, not against it --
+                            // surface (not surfaceElevated) is what actually contrasts here.
+                            uncheckedThumbColor = AppTheme.colors.textMuted,
+                            uncheckedTrackColor = AppTheme.colors.surface,
+                            uncheckedBorderColor = AppTheme.colors.border
+                        )
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Selected Phases List
+                // Selected Drills List
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f, fill = false)
                         .height(240.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(selectedPhases) { index, phase ->
+                    itemsIndexed(selectedDrills, key = { _, drill -> drill.id }) { index, drill ->
                         Card(
                             colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surfaceElevated.copy(alpha = 0.6f)),
                             shape = RoundedCornerShape(12.dp),
@@ -213,7 +247,10 @@ fun CustomRoutineBuilderDialog(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
                                     Text(
                                         text = "${index + 1}",
                                         color = AppTheme.colors.amber,
@@ -222,63 +259,33 @@ fun CustomRoutineBuilderDialog(
                                         fontFamily = FontFamily.Monospace,
                                         modifier = Modifier.width(20.dp)
                                     )
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = phase.title,
+                                            text = drill.name,
                                             color = AppTheme.colors.textHigh,
                                             fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
-                                            text = "${phase.durationSeconds} seconds",
+                                            text = formatLength(drill.dose.totalSeconds),
                                             color = AppTheme.colors.textMedium,
                                             fontSize = 11.sp
                                         )
                                     }
                                 }
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    // Quick Duration adjust
-                                    Surface(
-                                        color = AppTheme.colors.surface,
-                                        shape = RoundedCornerShape(6.dp),
-                                        modifier = Modifier.clickable {
-                                            val newDuration = when (phase.durationSeconds) {
-                                                15 -> 20
-                                                20 -> 30
-                                                30 -> 45
-                                                45 -> 60
-                                                else -> 15
-                                            }
-                                            selectedPhases[index] = phase.copy(durationSeconds = newDuration)
-                                        }
-                                    ) {
-                                        Text(
-                                            text = "+ time",
-                                            color = AppTheme.colors.amber,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(6.dp))
-
-                                    IconButton(
-                                        onClick = {
-                                            if (selectedPhases.size > 1) {
-                                                selectedPhases.removeAt(index)
-                                            }
-                                        },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = "Remove Phase",
-                                            tint = Color(0xFFEF4444).copy(alpha = 0.7f),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
+                                IconButton(
+                                    onClick = { selectedDrills.removeAt(index) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Remove drill",
+                                        tint = Color(0xFFEF4444).copy(alpha = 0.7f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
                             }
                         }
@@ -299,7 +306,7 @@ fun CustomRoutineBuilderDialog(
                 ) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Add Exercise Phase", fontSize = 13.sp)
+                    Text(text = "Add Exercise", fontSize = 13.sp)
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -308,38 +315,20 @@ fun CustomRoutineBuilderDialog(
                 Button(
                     onClick = {
                         val workoutId = "custom_${System.currentTimeMillis()}"
-                        val compiledProtocol = Protocol(
-                            id = workoutId,
-                            title = routineName.ifBlank { "Custom Routine" },
-                            description = "User-composed sequence with $totalTime seconds total ocular relaxation.",
-                            tag = "Custom",
-                            totalSeconds = totalTime,
-                            targetSymptom = "Personalized Recovery",
-                            phases = selectedPhases.map {
-                                ExercisePhase(
-                                    title = it.title,
-                                    instruction = it.instruction,
-                                    durationSeconds = it.durationSeconds,
-                                    type = it.exerciseType,
-                                    physiologicalBenefit = it.benefit
-                                )
-                            }
-                        )
-
+                        val protocols = selectedDrills.map { it.toProtocol() }
                         val entity = CustomWorkoutEntity(
                             workoutId = workoutId,
                             title = routineName.ifBlank { "Custom Routine" },
                             estimatedTotalSeconds = totalTime,
                             isFavorite = true,
-                            serializedDrills = selectedPhases.joinToString(",") { "${it.exerciseType.name}:${it.durationSeconds}" }
+                            serializedDrills = selectedDrills.joinToString(",") { it.id }
                         )
-
-                        onSaveAndLaunch(compiledProtocol, entity)
+                        onSaveAndLaunch(protocols, entity, skipInstructions)
                     },
-                    enabled = !isOverMaxLimit && selectedPhases.isNotEmpty(),
+                    enabled = !isOverMaxLimit && selectedDrills.isNotEmpty(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = AppTheme.colors.amber,
-                        contentColor = Color.Black
+                        contentColor = AppTheme.colors.bg
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -349,7 +338,7 @@ fun CustomRoutineBuilderDialog(
                     Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Save & Launch ($totalTime s)",
+                        text = "Save & Launch (${formatLength(totalTime)})",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
@@ -358,7 +347,10 @@ fun CustomRoutineBuilderDialog(
         }
     }
 
-    // Drill Picker Sub-Dialog
+    // Drill Picker Sub-Dialog -- every available drill stays listed the whole time, a tap
+    // toggles it in or out of the routine, and nothing closes the picker until "Done" is
+    // pressed, so several exercises can be added in one visit instead of reopening this
+    // dialog once per drill.
     if (showDrillPicker) {
         Dialog(onDismissRequest = { showDrillPicker = false }) {
             Surface(
@@ -369,52 +361,132 @@ fun CustomRoutineBuilderDialog(
                     .padding(vertical = 20.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
-                    Text(
-                        text = "Select Exercise Module",
-                        color = AppTheme.colors.textHigh,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Select Exercises",
+                                color = AppTheme.colors.textHigh,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${selectedDrills.size} selected",
+                                color = AppTheme.colors.textMedium,
+                                fontSize = 12.sp
+                            )
+                        }
+                        IconButton(onClick = { showDrillPicker = false }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = AppTheme.colors.textMedium
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    AVAILABLE_DRILL_TEMPLATES.forEach { template ->
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surfaceElevated),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable {
-                                    selectedPhases.add(template.copy(id = UUID.randomUUID().toString()))
-                                    showDrillPicker = false
-                                }
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 420.dp).weight(1f, fill = false),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        itemsIndexed(availableDrills, key = { _, drill -> drill.id }) { _, template ->
+                            val isSelected = selectedDrills.any { it.id == template.id }
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) {
+                                        AppTheme.colors.amber.copy(alpha = 0.15f)
+                                    } else {
+                                        AppTheme.colors.surfaceElevated
+                                    }
+                                ),
+                                border = if (isSelected) BorderStroke(1.dp, AppTheme.colors.amber) else null,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable {
+                                        if (isSelected) {
+                                            selectedDrills.removeAll { it.id == template.id }
+                                        } else {
+                                            selectedDrills.add(template)
+                                        }
+                                    }
+                            ) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = template.title,
-                                        color = AppTheme.colors.textHigh,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.sp
-                                    )
-                                    Text(
-                                        text = "${template.durationSeconds}s",
-                                        color = AppTheme.colors.amber,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 12.sp
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(if (isSelected) AppTheme.colors.amber else AppTheme.colors.surface),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = AppTheme.colors.bg,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = template.name,
+                                                color = AppTheme.colors.textHigh,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 13.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Text(
+                                                text = formatLength(template.dose.totalSeconds),
+                                                color = AppTheme.colors.amber,
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 12.sp,
+                                                maxLines = 1,
+                                                modifier = Modifier.padding(start = 6.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(3.dp))
+                                        Text(
+                                            text = template.whatYouDo,
+                                            color = AppTheme.colors.textMedium,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(
-                                    text = template.instruction,
-                                    color = AppTheme.colors.textMedium,
-                                    fontSize = 11.sp
-                                )
                             }
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = { showDrillPicker = false },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppTheme.colors.amber,
+                            contentColor = AppTheme.colors.bg
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(46.dp)
+                    ) {
+                        Text(text = "Done", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
             }

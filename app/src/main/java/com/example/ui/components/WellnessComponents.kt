@@ -48,7 +48,8 @@ import com.example.util.targetSpeedLabel
 fun HeroRoutineCard(
     protocol: Protocol,
     onStart: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    label: String = "NEXT UP"
 ) {
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -65,7 +66,7 @@ fun HeroRoutineCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "NEXT UP",
+                    text = label,
                     color = AppTheme.colors.textMuted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,

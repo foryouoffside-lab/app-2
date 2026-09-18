@@ -96,6 +96,7 @@ import com.example.ui.theme.AppTheme
 import com.example.util.SensoryFeedbackManager
 import com.example.util.DEFAULT_TARGET_SPEED
 import com.example.util.TargetColor
+import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -128,6 +129,31 @@ fun repRange(doseReps: Int): IntRange =
 private enum class Stage { INTRO, PREP, ACTIVE, DONE }
 
 /**
+ * Hides the system bars for as long as the caller stays composed, restoring them on the
+ * way out. Shared by [DrillScreen] and the next-drill transition in a queued session, so
+ * the chrome never flashes back on between two drills run back to back.
+ */
+@Composable
+internal fun HideSystemBarsWhileMounted() {
+    val view = LocalView.current
+    val activity = LocalContext.current as? Activity
+    DisposableEffect(Unit) {
+        val window = activity?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        controller?.apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+            // Only ever set by the rotate gate, but restored unconditionally: leaving a
+            // drill must never leave the rest of the app pinned sideways.
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+        }
+    }
+}
+
+/**
  * How long the session chrome stays up before a full-screen drill clears itself.
  *
  * Long enough to read the timer, short enough that the user is not tracking a moving
@@ -149,7 +175,7 @@ private const val CUE_REPEAT_MS = 5_000L
  */
 fun repLabel(reps: Int, cycleSeconds: Int): String =
     if (reps > 1) "$reps Reps"
-    else (reps * cycleSeconds).let { String.format("%02d:%02d", it / 60, it % 60) }
+    else (reps * cycleSeconds).let { String.format(Locale.ROOT, "%02d:%02d", it / 60, it % 60) }
 
 /** "90s" under a minute, "2m 30s" above it. */
 fun formatLength(seconds: Int): String =
@@ -167,9 +193,19 @@ fun DrillScreen(
     protocol: Protocol,
     voiceDefault: Boolean = true,
     hapticsEnabled: Boolean = true,
+    /** When set, the how-to walkthrough is skipped even when the drill has one — the
+     *  custom-routine "skip instructions" choice, so an experienced user can run straight
+     *  through without stepping through setup pages they already know. */
+    skipInstructions: Boolean = false,
     targetColor: TargetColor = TargetColor.AMBER,
     targetSpeed: Float = DEFAULT_TARGET_SPEED,
     onTargetSpeedChange: (Float) -> Unit = {},
+    /** Whether the transport's Previous / Next buttons should also be able to step to a
+     *  sibling drill in a queue once they run out of phases within this one. */
+    hasPreviousDrill: Boolean = false,
+    hasNextDrill: Boolean = false,
+    onPreviousDrill: () -> Unit = {},
+    onNextDrill: () -> Unit = {},
     onClose: () -> Unit,
     onCompleted: (protocolId: String, duration: Int) -> Unit
 ) {
@@ -178,22 +214,8 @@ fun DrillScreen(
 
     // A drill is the whole point of the screen, so the system bars come off for it. The
     // insets are restored on the way out, including when the drill is abandoned.
-    val view = LocalView.current
+    HideSystemBarsWhileMounted()
     val activity = context as? Activity
-    DisposableEffect(Unit) {
-        val window = activity?.window
-        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
-        controller?.apply {
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            hide(WindowInsetsCompat.Type.systemBars())
-        }
-        onDispose {
-            controller?.show(WindowInsetsCompat.Type.systemBars())
-            // Only ever set by the rotate gate, but restored unconditionally: leaving a
-            // drill must never leave the rest of the app pinned sideways.
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
-        }
-    }
     val coach = remember { SensoryFeedbackManager(context) }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -302,7 +324,7 @@ fun DrillScreen(
     /** Start pressed: walk the setup first where there is one, otherwise straight in. */
     fun begin() {
         coach.stopVoice()
-        if (prepSteps.isEmpty()) run() else { prepIndex = 0; stage = Stage.PREP }
+        if (skipInstructions || prepSteps.isEmpty()) run() else { prepIndex = 0; stage = Stage.PREP }
     }
 
     // Tutorial: explain once, and every line waits for the one before it to finish.
@@ -326,7 +348,7 @@ fun DrillScreen(
                 "Watch the screen and follow the target. I will stay quiet while you do."
             },
             when {
-                prepSteps.isNotEmpty() -> "Press start and I will talk you through the setup."
+                prepSteps.isNotEmpty() && !skipInstructions -> "Press start and I will talk you through the setup."
                 protocol.userAdjustable -> "Set your reps, then press start."
                 else -> ""
             }
@@ -470,13 +492,13 @@ fun DrillScreen(
                     bounds = repBounds,
                     reps = reps,
                     secondsLeft = introLeft,
-                    hasSetup = prepSteps.isNotEmpty(),
+                    hasSetup = prepSteps.isNotEmpty() && !skipInstructions,
                     onReps = { reps = it.coerceIn(repBounds) },
                     onStart = ::begin
                 )
             } else {
                 Text(
-                    text = String.format("%02d:%02d", secondsLeft / 60, secondsLeft % 60),
+                    text = String.format(Locale.ROOT, "%02d:%02d", secondsLeft / 60, secondsLeft % 60),
                     color = AppTheme.colors.textHigh,
                     fontSize = if (landscape) 40.sp else 52.sp,
                     fontWeight = FontWeight.Bold,
@@ -487,15 +509,22 @@ fun DrillScreen(
                 TransportControls(
                     isPaused = isPaused,
                     progress = elapsed.toFloat() / phase.durationSeconds.coerceAtLeast(1),
-                    hasPrevious = phaseIndex > 0,
-                    onPrevious = { if (phaseIndex > 0) phaseIndex-- },
+                    hasPrevious = phaseIndex > 0 || hasPreviousDrill,
+                    onPrevious = {
+                        coach.stopVoice()
+                        if (phaseIndex > 0) phaseIndex-- else if (hasPreviousDrill) onPreviousDrill()
+                    },
                     onToggle = {
                         if (!isPaused) coach.stopVoice()
                         isPaused = !isPaused
                     },
                     onNext = {
                         coach.stopVoice()
-                        if (phaseIndex < protocol.phases.lastIndex) phaseIndex++ else onClose()
+                        when {
+                            phaseIndex < protocol.phases.lastIndex -> phaseIndex++
+                            hasNextDrill -> onNextDrill()
+                            else -> onClose()
+                        }
                     }
                 )
             }

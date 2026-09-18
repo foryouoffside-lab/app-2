@@ -29,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
@@ -37,7 +36,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.runtime.setValue
+import androidx.core.app.NotificationManagerCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +60,7 @@ import com.example.util.ThemeMode
 import com.example.util.BREAK_INTERVAL_OPTIONS
 import com.example.util.BreakReminderSettings
 import com.example.util.ScreenUseWatchService
+import java.util.Locale
 
 @Composable
 fun ProfileScreen(
@@ -271,6 +271,66 @@ private fun ageNote(age: Int): String = when (ageBandFor(age)) {
 }
 
 /**
+ * Notifications denied (once, or forever) leave [settings.enabled] true with nothing ever
+ * arriving -- the exact "toggled it on and got silence" report this app kept getting. The
+ * row now says so and offers the one place a denied POST_NOTIFICATIONS grant can still be
+ * turned on: the app's own notification settings, since Android will not show its runtime
+ * dialog a second time once denied.
+ */
+@Composable
+private fun BackgroundReminderRow(
+    settings: BreakReminderSettings,
+    onChange: (BreakReminderSettings) -> Unit
+) {
+    val colors = AppTheme.colors
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var granted by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                granted = NotificationManagerCompat.from(context).areNotificationsEnabled()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    ToggleRow(
+        label = "Background reminders",
+        detail = if (granted) {
+            "Private, on-device reminders with no account required."
+        } else {
+            "Notifications are blocked for this app, so reminders can't reach you. Tap below to allow them."
+        },
+        checked = settings.enabled && granted,
+        onChange = { wanted -> onChange(settings.copy(enabled = wanted)) },
+        tag = "toggle_break_reminders"
+    )
+
+    if (settings.enabled && !granted) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Allow notifications",
+            color = colors.amber,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .clickable {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+                .padding(vertical = 8.dp, horizontal = 4.dp)
+                .testTag("grant_notifications")
+        )
+    }
+}
+
+/**
  * Usage Access has no runtime dialog, so turning this on can only hand the user off to
  * system Settings. The row therefore has two states, and says which one it is in rather
  * than leaving a toggle that silently does nothing.
@@ -353,13 +413,7 @@ private fun BreakReminderCard(
 ) {
     val colors = AppTheme.colors
     SettingsCard(title = "Screen breaks") {
-        ToggleRow(
-            label = "Background reminders",
-            detail = "Private, on-device reminders with no account required.",
-            checked = settings.enabled,
-            onChange = { onChange(settings.copy(enabled = it)) },
-            tag = "toggle_break_reminders"
-        )
+        BackgroundReminderRow(settings, onChange)
 
         Spacer(modifier = Modifier.height(10.dp))
         SmartBreakRow(settings, onChange)
@@ -479,7 +533,7 @@ private fun HourStepper(
                 modifier = Modifier.size(40.dp).testTag("${tag}_decrease")
             ) { Text("−", fontSize = 18.sp) }
             Text(
-                text = String.format("%02d:00", hour),
+                text = String.format(Locale.ROOT, "%02d:00", hour),
                 color = colors.textHigh,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,

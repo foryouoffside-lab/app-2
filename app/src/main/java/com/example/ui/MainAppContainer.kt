@@ -66,6 +66,7 @@ fun MainAppContainer(
     onBreakReminderSettingsChange: (BreakReminderSettings) -> Unit,
     onRetakeAssessment: () -> Unit,
     onStartProtocol: (Protocol) -> Unit,
+    onStartQueue: (queue: List<Protocol>, skipInstructions: Boolean) -> Unit,
     /**
      * Which tab is showing, owned by the caller.
      *
@@ -129,8 +130,8 @@ fun MainAppContainer(
                 .statusBarsPadding()
         ) { tab ->
             when (tab) {
-                AppPillarTab.TODAY -> TodayScreen(sessionLogDao, profile, onStartProtocol)
-                AppPillarTab.TRAIN -> TrainScreen(onStartProtocol, sessionLogDao, targetColor, targetSpeed)
+                AppPillarTab.TODAY -> TodayScreen(sessionLogDao, profile, onStartProtocol, onStartQueue)
+                AppPillarTab.TRAIN -> TrainScreen(onStartProtocol, onStartQueue, sessionLogDao, targetColor, targetSpeed)
                 AppPillarTab.CHALLENGE -> ChallengeScreen(profile.age)
                 AppPillarTab.PROGRESS -> ProgressScreen(sessionLogDao)
                 AppPillarTab.PROFILE -> ProfileScreen(
