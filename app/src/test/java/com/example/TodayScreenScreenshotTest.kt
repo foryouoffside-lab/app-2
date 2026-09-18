@@ -15,6 +15,7 @@ import com.example.ui.MainAppContainer
 import com.example.ui.theme.EyeRestTheme
 import com.example.util.TargetColor
 import com.example.util.ThemeMode
+import com.example.util.BreakReminderSettings
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.After
@@ -65,12 +66,14 @@ class TodayScreenScreenshotTest {
                     hapticsEnabled = true,
                     targetColor = TargetColor.AMBER,
                     targetSpeed = 1f,
+                    breakReminderSettings = BreakReminderSettings(),
                     onAgeChange = {},
                     onThemeChange = {},
                     onVoiceChange = {},
                     onHapticsChange = {},
                     onTargetColorChange = {},
                     onTargetSpeedChange = {},
+                    onBreakReminderSettingsChange = {},
                     onRetakeAssessment = {},
                     onStartProtocol = {},
                     activeTab = AppPillarTab.TODAY,

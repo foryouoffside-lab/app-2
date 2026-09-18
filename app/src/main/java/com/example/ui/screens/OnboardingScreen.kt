@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.ClinicalContext
+import com.example.model.ExerciseTimeBand
 import com.example.model.ScreenTimeBand
 import com.example.model.VisionCorrection
 import com.example.model.WellnessProfile
@@ -57,7 +58,7 @@ import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 /** Questions are asked one per screen; the step after the last one is the review. */
-const val ONBOARDING_QUESTION_COUNT = 6
+const val ONBOARDING_QUESTION_COUNT = 7
 const val ONBOARDING_REVIEW_STEP = ONBOARDING_QUESTION_COUNT
 
 /** Lets the radio fill paint before the card slides away. */
@@ -73,16 +74,18 @@ private const val AUTO_ADVANCE_MS = 220L
 fun OnboardingScreen(
     initialProfile: WellnessProfile? = null,
     initialAge: Int = initialProfile?.age ?: 30,
+    initialStep: Int = 0,
     onCompleted: (WellnessProfile) -> Unit
 ) {
     var age by remember { mutableIntStateOf(initialProfile?.age ?: initialAge) }
+    var exerciseTime by remember { mutableStateOf(initialProfile?.exerciseTime ?: ExerciseTimeBand.FIVE_TO_TEN) }
     var screenTime by remember { mutableStateOf(initialProfile?.screenTime ?: ScreenTimeBand.TWO_TO_FOUR) }
     var correction by remember { mutableStateOf(initialProfile?.correction ?: VisionCorrection.NONE) }
     var symptoms by remember { mutableStateOf(initialProfile?.symptoms.orEmpty()) }
     var clinicalContexts by remember { mutableStateOf(initialProfile?.clinicalContexts.orEmpty()) }
     var urgentSymptoms by remember { mutableStateOf(initialProfile?.urgentSymptoms ?: false) }
 
-    var step by remember { mutableIntStateOf(0) }
+    var step by remember(initialStep) { mutableIntStateOf(initialStep.coerceIn(0, ONBOARDING_REVIEW_STEP)) }
     var advancing by remember { mutableStateOf(false) }
     val next = { step = (step + 1).coerceAtMost(ONBOARDING_REVIEW_STEP) }
 
@@ -158,6 +161,19 @@ fun OnboardingScreen(
 
                     1 -> QuestionCard(
                         number = 2,
+                        title = "How much time do you have to exercise?",
+                        detail = "This sets a daily limit. We will not add unnecessary drills just to fill it."
+                    ) {
+                        ExerciseTimeBand.entries.forEach { option ->
+                            SingleChoiceRow(option.label, option == exerciseTime) {
+                                exerciseTime = option
+                                advancing = true
+                            }
+                        }
+                    }
+
+                    2 -> QuestionCard(
+                        number = 3,
                         title = "How much screen time on most days?",
                         detail = "Screen exposure changes break and blink priority, not eye strength."
                     ) {
@@ -169,8 +185,8 @@ fun OnboardingScreen(
                         }
                     }
 
-                    2 -> QuestionCard(
-                        number = 3,
+                    3 -> QuestionCard(
+                        number = 4,
                         title = "What vision correction do you use?",
                         detail = "Glasses do not require a different exercise. They can signal that working-distance correction should be checked."
                     ) {
@@ -182,8 +198,8 @@ fun OnboardingScreen(
                         }
                     }
 
-                    3 -> QuestionCard(
-                        number = 4,
+                    4 -> QuestionCard(
+                        number = 5,
                         title = "What regularly bothers you?",
                         detail = "Choose all that apply, then continue. Leave everything clear if you have no regular symptoms."
                     ) {
@@ -194,8 +210,8 @@ fun OnboardingScreen(
                         }
                     }
 
-                    4 -> QuestionCard(
-                        number = 5,
+                    5 -> QuestionCard(
+                        number = 6,
                         title = "Has a clinician diagnosed or treated any of these?",
                         detail = "Choose only diagnosed conditions. These answers add safeguards; they do not create a treatment prescription."
                     ) {
@@ -206,8 +222,8 @@ fun OnboardingScreen(
                         }
                     }
 
-                    5 -> QuestionCard(
-                        number = 6,
+                    6 -> QuestionCard(
+                        number = 7,
                         title = "Do you have an urgent warning sign now?",
                         detail = "Sudden vision change or loss, new flashes or a curtain, severe eye pain, a painful red eye, or sudden double vision."
                     ) {
@@ -223,6 +239,7 @@ fun OnboardingScreen(
 
                     else -> ReviewCard(
                         age = age,
+                        exerciseTime = exerciseTime,
                         screenTime = screenTime,
                         correction = correction,
                         symptoms = symptoms,
@@ -257,7 +274,8 @@ fun OnboardingScreen(
                                 correction = correction,
                                 symptoms = symptoms,
                                 clinicalContexts = clinicalContexts,
-                                urgentSymptoms = urgentSymptoms
+                                urgentSymptoms = urgentSymptoms,
+                                exerciseTime = exerciseTime
                             )
                         )
                     }
@@ -287,6 +305,7 @@ fun OnboardingScreen(
 @Composable
 private fun ReviewCard(
     age: Int,
+    exerciseTime: ExerciseTimeBand,
     screenTime: ScreenTimeBand,
     correction: VisionCorrection,
     symptoms: Set<WellnessSymptom>,
@@ -295,6 +314,7 @@ private fun ReviewCard(
 ) {
     val answers = listOf(
         "Age" to "$age",
+        "Daily exercise time" to exerciseTime.label,
         "Screen time" to screenTime.label,
         "Correction" to correction.label,
         "Symptoms" to symptoms.joinToString { it.label }.ifEmpty { "None" },

@@ -2,6 +2,7 @@ package com.example
 
 import com.example.model.ClinicalContext
 import com.example.model.DailyPlanRepository
+import com.example.model.ExerciseTimeBand
 import com.example.model.GeneralUserStatus
 import com.example.model.Practice
 import com.example.model.ScreenTimeBand
@@ -14,6 +15,27 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DailyPlanTest {
+
+    @Test
+    fun `available time limits drill count without changing evidence doses`() {
+        val symptoms = setOf(
+            WellnessSymptom.DRY_GRITTY,
+            WellnessSymptom.TIRED_STRAIN,
+            WellnessSymptom.TENSION_HEADACHE
+        )
+        val short = DailyPlanRepository.forDay(
+            profile(symptoms = symptoms, exerciseTime = ExerciseTimeBand.FIVE_TO_TEN),
+            dayKey = 100
+        )
+        val long = DailyPlanRepository.forDay(
+            profile(symptoms = symptoms, exerciseTime = ExerciseTimeBand.FIFTEEN_TO_TWENTY),
+            dayKey = 100
+        )
+
+        assertEquals(3, short.guided.size)
+        assertEquals(3, long.guided.size)
+        assertEquals(short.guided.first().protocol.totalSeconds, long.guided.first().protocol.totalSeconds)
+    }
 
     @Test
     fun `dry high-screen profile gets blink and distance-break core work`() {
@@ -117,6 +139,7 @@ class DailyPlanTest {
         correction: VisionCorrection = VisionCorrection.NONE,
         symptoms: Set<WellnessSymptom> = emptySet(),
         clinicalContexts: Set<ClinicalContext> = emptySet(),
-        urgentSymptoms: Boolean = false
-    ) = WellnessProfile(age, screenTime, correction, symptoms, clinicalContexts, urgentSymptoms)
+        urgentSymptoms: Boolean = false,
+        exerciseTime: ExerciseTimeBand = ExerciseTimeBand.FIFTEEN_TO_TWENTY
+    ) = WellnessProfile(age, screenTime, correction, symptoms, clinicalContexts, urgentSymptoms, exerciseTime)
 }

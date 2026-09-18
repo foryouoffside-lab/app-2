@@ -6,6 +6,7 @@ import com.example.model.accuracyPercent
 import com.example.model.acuityEyesDiffer
 import com.example.model.medianMillis
 import com.example.model.nearClarityLabel
+import com.example.model.nearClarityRecommendation
 import com.example.model.optotypeMillimetresAt40Cm
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -68,5 +69,40 @@ class VisionChallengeTest {
         assertTrue(!acuityEyesDiffer(0.2, 0.1))
         assertTrue(acuityEyesDiffer(0.3, 0.1))
         assertTrue(acuityEyesDiffer(null, 0.7))
+    }
+
+    @Test
+    fun `near clarity walkthrough is one instruction per step, not a paragraph`() {
+        val steps = VisionChallengeRepository.challenges.single { it.id == "near_clarity" }.howTo
+        assertTrue("near_clarity needs a one-eye-at-a-time walkthrough", steps.isNotEmpty())
+        assertTrue("the walkthrough never says to cover an eye", steps.any { "cover" in it.lowercase() })
+        steps.forEachIndexed { i, step ->
+            assertTrue(
+                "near_clarity step ${i + 1} is ${step.length} chars, too long for one screen",
+                step.length in 20..260
+            )
+        }
+    }
+
+    @Test
+    fun `near clarity walkthrough tests the right eye before the left, same order as the runner`() {
+        // The runner's first round is eye = 0, headed "RIGHT EYE", scored by covering the
+        // left. The walkthrough has to say that in the same order or it teaches the
+        // opposite of what the round it leads into actually does.
+        val steps = VisionChallengeRepository.challenges.single { it.id == "near_clarity" }.howTo
+        val rightFirst = steps.indexOfFirst { "right eye" in it.lowercase() }
+        val leftSecond = steps.indexOfFirst { "left eye" in it.lowercase() && "cover your left eye" in it.lowercase() }
+        assertTrue("no step names the right eye", rightFirst >= 0)
+        assertTrue("no step hands the test over to the left eye", steps.any { "left eye" in it.lowercase() })
+        assertTrue("the right eye must be introduced before the left eye takes over", rightFirst < steps.lastIndex)
+        assertEquals("naming the right eye and covering the left to test it belong in the same step", rightFirst, leftSecond)
+    }
+
+    @Test
+    fun `near clarity feedback names the actual thing to do next`() {
+        assertTrue("no threshold" in nearClarityRecommendation(null, null).lowercase())
+        assertTrue("exam" in nearClarityRecommendation(0.3, 0.1).lowercase())
+        assertTrue("exam" in nearClarityRecommendation(0.3, 0.3).lowercase())
+        assertTrue("usual correction" in nearClarityRecommendation(0.0, 0.1).lowercase())
     }
 }

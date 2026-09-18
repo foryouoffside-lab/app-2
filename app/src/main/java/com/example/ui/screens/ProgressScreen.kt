@@ -55,6 +55,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.SessionLog
 import com.example.data.SessionLogDao
+import com.example.model.WEEKLY_CARE_GOAL
+import com.example.model.calculateHabitStats
 import com.example.ui.components.StatMetricCard
 import com.example.ui.theme.AppTheme
 import com.example.ui.theme.AmberGlow
@@ -85,6 +87,7 @@ fun ProgressScreen(
     val totalSessions by sessionLogDao.getTotalSessionsCount().collectAsStateWithLifecycle(initialValue = 0)
     val totalRestSeconds by sessionLogDao.getTotalRestSeconds().collectAsStateWithLifecycle(initialValue = 0)
     val allLogs by sessionLogDao.getAllLogs().collectAsStateWithLifecycle(initialValue = emptyList())
+    val habitStats = remember(allLogs) { calculateHabitStats(allLogs) }
 
     val coroutineScope = rememberCoroutineScope()
     var showResetDialog by remember { mutableStateOf(false) }
@@ -234,15 +237,15 @@ fun ProgressScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    val days = listOf("M", "T", "W", "T", "F", "S", "S")
+                    val days = recentDayLabels()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        days.forEachIndexed { index, day ->
-                            val isToday = index == 4 // Sample highlight for active day
-                            val hasActivity = totalSessions > 0 && index >= 2
+                        days.zip(habitStats.lastSevenDays).forEach { (day, careDay) ->
+                            val isToday = careDay.isToday
+                            val hasActivity = careDay.completed
 
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -275,7 +278,7 @@ fun ProgressScreen(
             }
         }
 
-        // 30-Day Recovery Journey Card
+        // Care rhythm: one meaningful completion per day, never per-session grinding.
         item {
             Card(
                 shape = RoundedCornerShape(22.dp),
@@ -306,16 +309,15 @@ fun ProgressScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "30-Day Habit Journey",
+                                text = "Care Rhythm",
                                 color = AppTheme.colors.textHigh,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
 
-                        val dayProgress = ((totalSessions.coerceAtMost(30) / 30f) * 100).toInt()
                         Text(
-                            text = "Day ${totalSessions.coerceAtLeast(1).coerceAtMost(30)} of 30",
+                            text = "${habitStats.activeDaysLastSeven}/$WEEKLY_CARE_GOAL this week",
                             color = AppTheme.colors.teal,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
@@ -324,7 +326,9 @@ fun ProgressScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    val progressFraction = (totalSessions.coerceAtMost(30) / 30f).coerceIn(0.05f, 1f)
+                    val target = habitStats.nextMilestone
+                    val progressFraction = if (target == null) 1f else
+                        (habitStats.longestStreak.toFloat() / target).coerceIn(0f, 1f)
                     LinearProgressIndicator(
                         progress = { progressFraction },
                         color = AppTheme.colors.teal,
@@ -338,7 +342,11 @@ fun ProgressScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "Blink often. Look far.",
+                        text = buildString {
+                            append("Current ${habitStats.currentStreak} days · best ${habitStats.longestStreak} · ${habitStats.totalCareDays} total care days. ")
+                            if (target != null) append("Next badge at $target days. ")
+                            append("Only one session counts each day; rest is part of the plan.")
+                        },
                         color = AppTheme.colors.textMedium,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
@@ -471,5 +479,14 @@ fun ProgressScreen(
                 }
             }
         }
+    }
+}
+
+private fun recentDayLabels(): List<String> {
+    val formatter = SimpleDateFormat("EEEEE", Locale.getDefault())
+    val calendar = java.util.Calendar.getInstance()
+    return (6 downTo 0).map { daysAgo ->
+        (calendar.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, -daysAgo) }
+            .let { formatter.format(it.time).take(1) }
     }
 }

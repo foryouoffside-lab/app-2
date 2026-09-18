@@ -3,6 +3,8 @@ package com.example.ui.drill
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.net.Uri
+import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -12,11 +14,13 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,6 +59,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -65,11 +70,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -190,6 +198,22 @@ fun DrillScreen(
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     var stage by remember { mutableStateOf(Stage.INTRO) }
+    // True once the user has stepped through every how-to page and there is nothing left
+    // to read: the rotate ask is the last page, not a wall in front of the first one.
+    var awaitingRotate by remember { mutableStateOf(false) }
+
+    // The how-to (with its demo video) is written and shot for portrait, so it stays put
+    // however the phone is held while it's on screen. Rotation only opens up once there is
+    // nothing left to read -- either the drill is already running, or we're on the rotate
+    // ask itself, which needs the sensor free to react to the turn.
+    LaunchedEffect(stage, awaitingRotate) {
+        activity?.requestedOrientation = if (awaitingRotate || stage == Stage.ACTIVE || stage == Stage.DONE) {
+            ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
+
     var phaseIndex by remember { mutableIntStateOf(0) }
     val phase: ExercisePhase = protocol.phases[phaseIndex]
     var secondsLeft by remember(phaseIndex) { mutableIntStateOf(phase.durationSeconds) }
@@ -242,17 +266,37 @@ fun DrillScreen(
         coach.stopVoice()
         when {
             showEvidence -> showEvidence = false
+            awaitingRotate -> awaitingRotate = false
             stage != Stage.PREP -> onClose()
             prepIndex > 0 -> prepIndex--
             else -> stage = Stage.INTRO
         }
     }
 
+    /**
+     * Reached from the last how-to page (or straight from Start when there is no how-to).
+     * A drill that needs the long edge gets one more page -- the rotate ask -- instead of
+     * starting; everything else runs immediately.
+     */
     fun run() {
+        if (mustRotate && !landscape) {
+            awaitingRotate = true
+            return
+        }
         coach.stopVoice()
         secondsLeft = plannedSeconds
         elapsedMs = 0f
         stage = Stage.ACTIVE
+    }
+
+    // The turn itself is the confirmation: once the sensor reports landscape there is
+    // nothing left to ask for, so the drill starts on its own rather than making the user
+    // find a Start button while holding the phone sideways.
+    LaunchedEffect(landscape, awaitingRotate) {
+        if (awaitingRotate && landscape) {
+            awaitingRotate = false
+            run()
+        }
     }
 
     /** Start pressed: walk the setup first where there is one, otherwise straight in. */
@@ -274,7 +318,7 @@ fun DrillScreen(
         // than reading the next line over the drill.
         coach.speakSequence(
             phase.title,
-            if (mustRotate) "This one needs the long edge. Turn your phone sideways to begin." else "",
+            if (mustRotate) "This one needs the long edge. I will ask you to turn once the how-to is done." else "",
             if (needsKit != null) "You will need $needsKit." else "",
             if (guidance == DrillGuidance.NON_VISUAL) {
                 "Your eyes will be off the screen, so I will call every step out loud."
@@ -282,7 +326,6 @@ fun DrillScreen(
                 "Watch the screen and follow the target. I will stay quiet while you do."
             },
             when {
-                mustRotate -> ""
                 prepSteps.isNotEmpty() -> "Press start and I will talk you through the setup."
                 protocol.userAdjustable -> "Set your reps, then press start."
                 else -> ""
@@ -372,6 +415,10 @@ fun DrillScreen(
     LaunchedEffect(landscape) {
         if (landscape == wasLandscape) return@LaunchedEffect
         wasLandscape = landscape
+        // Rotating while the how-to is still up isn't "deliberate" in that sense -- it's
+        // the rotate ask itself, or an accidental turn while portrait is locked -- so only
+        // the running drill gets this announcement.
+        if (stage != Stage.ACTIVE) return@LaunchedEffect
         controlsVisible = false
         coach.speak(
             "${phase.instruction}. Tap the screen for your controls.",
@@ -417,12 +464,7 @@ fun DrillScreen(
                     bounds = repBounds,
                     reps = reps,
                     secondsLeft = introLeft,
-                    rotateHint = mustRotate,
                     hasSetup = prepSteps.isNotEmpty(),
-                    onRotate = {
-                        activity?.requestedOrientation =
-                            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                    },
                     onReps = { reps = it.coerceIn(repBounds) },
                     onStart = ::begin
                 )
@@ -522,10 +564,23 @@ fun DrillScreen(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                if (stage == Stage.PREP) {
+                if (awaitingRotate) {
+                    // The last page: everything else has been read, this is the one thing
+                    // left standing between here and the drill.
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        RotateGate {
+                            activity?.requestedOrientation =
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        }
+                    }
+                } else if (stage == Stage.PREP) {
                     PrepSteps(
                         steps = prepSteps,
+                        images = evidence?.howToImages.orEmpty(),
+                        videos = evidence?.howToVideos.orEmpty(),
                         index = prepIndex,
+                        onBack = { if (prepIndex > 0) prepIndex-- else stage = Stage.INTRO },
+                        onSkip = { coach.stopVoice(); run() },
                         onNext = { if (prepIndex < prepSteps.lastIndex) prepIndex++ else run() },
                         modifier = Modifier.weight(1f)
                     )
@@ -710,9 +765,7 @@ private fun IntroFooter(
     bounds: IntRange,
     reps: Int,
     secondsLeft: Int,
-    rotateHint: Boolean,
     hasSetup: Boolean,
-    onRotate: () -> Unit,
     onReps: (Int) -> Unit,
     onStart: () -> Unit
 ) {
@@ -720,13 +773,6 @@ private fun IntroFooter(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Nothing else while the phone is the wrong way round: a drill whose target has
-        // 6cm to travel is not the drill, and burying the ask above the Start button
-        // meant it was read by nobody.
-        if (rotateHint) {
-            RotateGate(onRotate)
-            return@Column
-        }
         if (adjustable) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -841,11 +887,17 @@ private fun RotateGate(onRotate: () -> Unit) {
 @Composable
 private fun PrepSteps(
     steps: List<String>,
+    images: List<Int?>,
+    videos: List<Int?>,
     index: Int,
+    onBack: () -> Unit,
+    onSkip: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val last = index >= steps.lastIndex
+    val image = images.getOrNull(index)
+    val video = videos.getOrNull(index)
     Column(
         modifier = modifier.fillMaxWidth().testTag("prep_steps"),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -875,39 +927,138 @@ private fun PrepSteps(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        Text(
-            text = "${index + 1}",
-            color = AppTheme.colors.teal.copy(alpha = .30f),
-            fontSize = 72.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        Text(
-            text = steps.getOrElse(index) { "" },
-            color = AppTheme.colors.textHigh,
-            fontSize = 19.sp,
-            lineHeight = 29.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.testTag("prep_step_text")
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Text(
-            text = if (last) "I'm ready — start" else "Next",
-            color = if (last) AppTheme.colors.bg else AppTheme.colors.textHigh,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
+        // Scrollable on its own: the video is sized by its real aspect ratio now rather
+        // than however much weighted space happened to be left over, and a portrait clip
+        // at full width can run tall enough that the instruction text needs to be able to
+        // scroll into view below it instead of getting squeezed against the buttons.
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(if (last) AppTheme.colors.amber else AppTheme.colors.surface)
-                .clickable(onClick = onNext)
-                .padding(vertical = 16.dp)
-                .testTag("prep_next")
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(20.dp))
+
+            if (video != null) {
+                LoopingStepVideo(
+                    resId = video,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // VideoView has no equivalent of ContentScale.Fit -- it stretches
+                        // to whatever box it's given, so the box has to be pinned to the
+                        // clip's own 4:5 shape itself rather than left to a weight share.
+                        .aspectRatio(4f / 5f)
+                        .clip(RoundedCornerShape(20.dp))
+                        .testTag("prep_step_video")
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+            } else if (image != null) {
+                Image(
+                    painter = painterResource(image),
+                    contentDescription = steps.getOrElse(index) { "" },
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .testTag("prep_step_image")
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+            } else {
+                Text(
+                    text = "${index + 1}",
+                    color = AppTheme.colors.teal.copy(alpha = .30f),
+                    fontSize = 72.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+            Text(
+                text = steps.getOrElse(index) { "" },
+                color = AppTheme.colors.textHigh,
+                fontSize = 19.sp,
+                lineHeight = 29.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.testTag("prep_step_text")
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Back",
+                color = AppTheme.colors.textHigh,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(AppTheme.colors.surface)
+                    .clickable(onClick = onBack)
+                    .padding(vertical = 16.dp)
+                    .testTag("prep_back")
+            )
+            Text(
+                text = "Skip",
+                color = AppTheme.colors.textMedium,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(AppTheme.colors.surface)
+                    .clickable(onClick = onSkip)
+                    .padding(vertical = 16.dp)
+                    .testTag("prep_skip")
+            )
+            Text(
+                text = if (last) "Start" else "Next",
+                color = if (last) AppTheme.colors.bg else AppTheme.colors.textHigh,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (last) AppTheme.colors.amber else AppTheme.colors.surface)
+                    .clickable(onClick = onNext)
+                    .padding(vertical = 16.dp)
+                    .testTag("prep_next")
+            )
+        }
+    }
+}
+
+/**
+ * A muted, looping demo clip for one prep step. Keyed on [resId] so moving between
+ * steps tears down the old player instead of re-pointing it mid-playback.
+ */
+@Composable
+private fun LoopingStepVideo(resId: Int, modifier: Modifier = Modifier) {
+    key(resId) {
+        AndroidView(
+            modifier = modifier,
+            factory = { context ->
+                VideoView(context).apply {
+                    setVideoURI(Uri.parse("android.resource://${context.packageName}/$resId"))
+                    setOnPreparedListener { player ->
+                        player.isLooping = true
+                        player.setVolume(0f, 0f)
+                        // Starting here, once the player has actually confirmed it's ready,
+                        // instead of firing start() right after setVideoURI(): calling it
+                        // before preparation completes is a race that can silently leave
+                        // the view parked on frame one, no error, no visible failure.
+                        start()
+                    }
+                    setOnErrorListener { _, _, _ -> true }
+                }
+            },
+            onRelease = { it.stopPlayback() }
         )
     }
 }

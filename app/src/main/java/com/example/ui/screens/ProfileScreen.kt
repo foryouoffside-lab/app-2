@@ -30,6 +30,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +60,9 @@ import com.example.util.TARGET_SPEED_RANGE
 import com.example.util.targetSpeedLabel
 import com.example.util.SUPPORTED_AGES
 import com.example.util.ThemeMode
+import com.example.util.BREAK_INTERVAL_OPTIONS
+import com.example.util.BreakReminderSettings
+import com.example.util.ScreenUseWatchService
 import kotlin.math.roundToInt
 
 @Composable
@@ -61,12 +74,14 @@ fun ProfileScreen(
     hapticsEnabled: Boolean,
     targetColor: TargetColor,
     targetSpeed: Float,
+    breakReminderSettings: BreakReminderSettings,
     onAgeChange: (Int) -> Unit,
     onThemeChange: (ThemeMode) -> Unit,
     onVoiceChange: (Boolean) -> Unit,
     onHapticsChange: (Boolean) -> Unit,
     onTargetColorChange: (TargetColor) -> Unit,
     onTargetSpeedChange: (Float) -> Unit,
+    onBreakReminderSettingsChange: (BreakReminderSettings) -> Unit,
     onRetakeAssessment: () -> Unit
 ) {
     val colors = AppTheme.colors
@@ -239,6 +254,13 @@ fun ProfileScreen(
         }
 
         item {
+            BreakReminderCard(
+                settings = breakReminderSettings,
+                onChange = onBreakReminderSettingsChange
+            )
+        }
+
+        item {
             Text(
                 text = "Comfort practice, not treatment. See an optometrist for eye problems.",
                 color = colors.textMuted,
@@ -255,6 +277,238 @@ private fun ageNote(age: Int): String = when (ageBandFor(age)) {
     AgeBand.ADULT -> "Sets how far your focus drills reach."
     AgeBand.EARLY_PRESBYOPIC -> "Near targets move further out from here."
     AgeBand.PRESBYOPIC -> "Blink and distance work replace near drills."
+}
+
+/**
+ * Usage Access has no runtime dialog, so turning this on can only hand the user off to
+ * system Settings. The row therefore has two states, and says which one it is in rather
+ * than leaving a toggle that silently does nothing.
+ */
+@Composable
+private fun SmartBreakRow(
+    settings: BreakReminderSettings,
+    onChange: (BreakReminderSettings) -> Unit
+) {
+    val colors = AppTheme.colors
+    val context = LocalContext.current
+    // Re-checked on every resume: the grant happens in another app, so there is no result
+    // to listen for -- coming back is the only signal.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var granted by remember { mutableStateOf(ScreenUseWatchService.hasUsageAccess(context)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                granted = ScreenUseWatchService.hasUsageAccess(context)
+                ScreenUseWatchService.sync(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    ToggleRow(
+        label = "Smart breaks",
+        detail = if (granted) {
+            "Nudges after a long unbroken stretch in a social or video app, instead of on the clock."
+        } else {
+            "Needs Usage Access so the app can tell when you have been scrolling. Tap below to grant it."
+        },
+        checked = settings.smartEnabled && granted,
+        onChange = { wanted ->
+            onChange(settings.copy(smartEnabled = wanted))
+            if (wanted && !granted) {
+                context.startActivity(
+                    Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+        },
+        tag = "toggle_smart_breaks"
+    )
+
+    if (settings.smartEnabled && !granted) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Grant Usage Access",
+            color = colors.teal,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .clickable {
+                    context.startActivity(
+                        Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+                .padding(vertical = 8.dp, horizontal = 4.dp)
+                .testTag("grant_usage_access")
+        )
+    }
+
+    if (settings.smartEnabled && granted) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "A quiet ongoing notification stays in your shade while this is on. Android requires it.",
+            color = colors.textMuted,
+            fontSize = 11.sp,
+            lineHeight = 16.sp
+        )
+    }
+}
+
+@Composable
+private fun BreakReminderCard(
+    settings: BreakReminderSettings,
+    onChange: (BreakReminderSettings) -> Unit
+) {
+    val colors = AppTheme.colors
+    SettingsCard(title = "Screen breaks") {
+        ToggleRow(
+            label = "Background reminders",
+            detail = "Private, on-device reminders with no account required.",
+            checked = settings.enabled,
+            onChange = { onChange(settings.copy(enabled = it)) },
+            tag = "toggle_break_reminders"
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        SmartBreakRow(settings, onChange)
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "REMIND ME EVERY",
+            color = colors.textMuted,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            BREAK_INTERVAL_OPTIONS.forEach { minutes ->
+                val selected = minutes == settings.intervalMinutes
+                Text(
+                    text = "$minutes min",
+                    color = if (selected) colors.bg else colors.textMedium,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) colors.teal else colors.surfaceElevated)
+                        .clickable { onChange(settings.copy(intervalMinutes = minutes)) }
+                        .padding(vertical = 10.dp)
+                        .testTag("break_interval_$minutes")
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "ACTIVE HOURS",
+            color = colors.textMuted,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            HourStepper(
+                label = "Start",
+                hour = settings.startHour,
+                decreaseEnabled = settings.startHour > 0,
+                increaseEnabled = settings.startHour + 1 < settings.endHour,
+                onDecrease = { onChange(settings.copy(startHour = settings.startHour - 1)) },
+                onIncrease = { onChange(settings.copy(startHour = settings.startHour + 1)) },
+                modifier = Modifier.weight(1f),
+                tag = "break_start"
+            )
+            HourStepper(
+                label = "End",
+                hour = settings.endHour,
+                decreaseEnabled = settings.endHour - 1 > settings.startHour,
+                increaseEnabled = settings.endHour < 23,
+                onDecrease = { onChange(settings.copy(endHour = settings.endHour - 1)) },
+                onIncrease = { onChange(settings.copy(endHour = settings.endHour + 1)) },
+                modifier = Modifier.weight(1f),
+                tag = "break_end"
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        ToggleRow(
+            label = "Weekdays only",
+            detail = if (settings.weekdaysOnly) "Paused on Saturday and Sunday." else "Reminders can run every day.",
+            checked = settings.weekdaysOnly,
+            onChange = { onChange(settings.copy(weekdaysOnly = it)) },
+            tag = "toggle_break_weekdays"
+        )
+        Text(
+            text = "Android may deliver an inexact reminder later during battery saver. " +
+                "Changing time zone or restarting the phone rebuilds the schedule.",
+            color = colors.textMuted,
+            fontSize = 11.sp,
+            lineHeight = 16.sp
+        )
+    }
+}
+
+@Composable
+private fun HourStepper(
+    label: String,
+    hour: Int,
+    decreaseEnabled: Boolean,
+    increaseEnabled: Boolean,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    modifier: Modifier = Modifier,
+    tag: String
+) {
+    val colors = AppTheme.colors
+    Column(modifier = modifier) {
+        Text(label, color = colors.textMedium, fontSize = 12.sp)
+        Spacer(modifier = Modifier.height(5.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.surfaceElevated)
+                .padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = onDecrease,
+                enabled = decreaseEnabled,
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.surface,
+                    contentColor = colors.textHigh,
+                    disabledContainerColor = colors.surface,
+                    disabledContentColor = colors.textMuted.copy(alpha = 0.4f)
+                ),
+                modifier = Modifier.size(40.dp).testTag("${tag}_decrease")
+            ) { Text("−", fontSize = 18.sp) }
+            Text(
+                text = String.format("%02d:00", hour),
+                color = colors.textHigh,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f).testTag("${tag}_value")
+            )
+            Button(
+                onClick = onIncrease,
+                enabled = increaseEnabled,
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.surface,
+                    contentColor = colors.textHigh,
+                    disabledContainerColor = colors.surface,
+                    disabledContentColor = colors.textMuted.copy(alpha = 0.4f)
+                ),
+                modifier = Modifier.size(40.dp).testTag("${tag}_increase")
+            ) { Text("+", fontSize = 18.sp) }
+        }
+    }
 }
 
 @Composable

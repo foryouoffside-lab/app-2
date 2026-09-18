@@ -14,6 +14,14 @@ enum class ScreenTimeBand(val label: String) {
     val high: Boolean get() = this == FOUR_TO_EIGHT || this == OVER_EIGHT
 }
 
+/** Available daily time is a ceiling, not a target that should be filled. */
+enum class ExerciseTimeBand(val label: String, val maxGuidedDrills: Int) {
+    FIVE_TO_TEN("5-10 minutes", 3),
+    TEN_TO_FIFTEEN("10-15 minutes", 4),
+    FIFTEEN_TO_TWENTY("15-20 minutes", 5),
+    MORE_THAN_TWENTY("More than 20 minutes", 6)
+}
+
 enum class VisionCorrection(val label: String) {
     NONE("None"),
     GLASSES("Glasses"),
@@ -51,7 +59,8 @@ data class WellnessProfile(
      * Sudden vision change/loss, new flashes or curtain, severe pain, a painful red eye,
      * or sudden double vision. A yes answer pauses all automatic drills.
      */
-    val urgentSymptoms: Boolean
+    val urgentSymptoms: Boolean,
+    val exerciseTime: ExerciseTimeBand = ExerciseTimeBand.FIVE_TO_TEN
 )
 
 data class DailyRecommendation(
@@ -103,6 +112,7 @@ object DailyPlanRepository {
 
     fun forDay(profile: WellnessProfile, dayKey: Int = localDayKey()): DailyPlan {
         val basedOn = buildList {
+            add(profile.exerciseTime.label.lowercase() + " available")
             add(profile.screenTime.label.lowercase() + " of screen time")
             if (profile.symptoms.isEmpty()) add("no regular symptoms reported")
             else add(profile.symptoms.joinToString { it.label.lowercase() })
@@ -157,6 +167,14 @@ object DailyPlanRepository {
             },
             isCore = true
         )
+        // Concentrated screen viewing commonly suppresses complete blinking. Include
+        // the taught blink cycle as a screen-work skill, without claiming treatment.
+        if (screenNeed && !dryNeed) addGuided(
+            guided,
+            "complete_blink_squeeze",
+            "Included to practise complete blinking during concentrated screen work; this is a comfort skill, not vision correction.",
+            isCore = false
+        )
         if (screenNeed) addGuided(
             guided,
             "screen_break_20_20_20",
@@ -166,6 +184,11 @@ object DailyPlanRepository {
 
         val optionalIds = buildList {
             if (WellnessSymptom.TENSION_HEADACHE in profile.symptoms) {
+                add("palming")
+                add("eye_range_of_motion")
+            } else if (screenNeed) {
+                // Rotate one low-load comfort break so the set changes without
+                // increasing dose or substituting a condition-specific exercise.
                 add("palming")
                 add("eye_range_of_motion")
             }
@@ -180,7 +203,7 @@ object DailyPlanRepository {
                 if (id == "warm_compress") {
                     "Rotating lid-care support because you reported diagnosed dry-eye or lid disease."
                 } else {
-                    "Today's optional comfort variation for tension; evidence is for short-term comfort, not stronger eyesight."
+                    "Today's optional comfort variation; evidence is for short-term comfort, not stronger eyesight."
                 },
                 isCore = false
             )
@@ -232,7 +255,8 @@ object DailyPlanRepository {
         }
 
         return DailyPlan(
-            guided = guided.take(3),
+            // Never stretch a studied dose or add an unrelated drill merely to fill time.
+            guided = guided.take(profile.exerciseTime.maxGuidedDrills),
             habits = coreHabits,
             basedOn = basedOn,
             safetyMessage = safety

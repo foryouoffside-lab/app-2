@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.example.model.ScreenTimeBand
+import com.example.model.ExerciseTimeBand
 import com.example.model.WellnessProfile
 import com.example.ui.screens.ONBOARDING_REVIEW_STEP
 import com.example.ui.screens.OnboardingScreen
@@ -31,6 +32,7 @@ class OnboardingStepFlowTest {
 
     /** The test viewport is short, so only options near the top of a card are tappable. */
     private val pickedBand = ScreenTimeBand.UNDER_TWO
+    private val pickedExerciseTime = ExerciseTimeBand.FIVE_TO_TEN
 
     private fun start() {
         compose.setContent {
@@ -46,10 +48,10 @@ class OnboardingStepFlowTest {
     fun `only the current question is on screen`() {
         start()
         compose.onNodeWithText("What is your age?").assertIsDisplayed()
-        compose.onNodeWithText("How much screen time on most days?").assertDoesNotExist()
+        compose.onNodeWithText("How much time do you have to exercise?").assertDoesNotExist()
 
         compose.onNodeWithTag("onboarding_continue").performClick()
-        compose.onNodeWithText("How much screen time on most days?").assertIsDisplayed()
+        compose.onNodeWithText("How much time do you have to exercise?").assertIsDisplayed()
         compose.onNodeWithText("What is your age?").assertDoesNotExist()
     }
 
@@ -57,6 +59,8 @@ class OnboardingStepFlowTest {
     fun `answering a single-choice question advances by itself`() {
         start()
         compose.onNodeWithTag("onboarding_continue").performClick()
+        compose.onNodeWithText(pickedExerciseTime.label).performClick()
+        awaitText("How much screen time on most days?")
         compose.onNodeWithText(pickedBand.label).performClick()
         awaitText("What vision correction do you use?")
     }
@@ -65,9 +69,11 @@ class OnboardingStepFlowTest {
     fun `walking every step saves the answers picked along the way`() {
         start()
         compose.onNodeWithTag("onboarding_continue").performClick()   // Q1 age: keep default 30
-        compose.onNodeWithText(pickedBand.label).performClick()       // Q2 advances by itself
+        compose.onNodeWithText(pickedExerciseTime.label).performClick() // Q2 advances by itself
+        awaitText("How much screen time on most days?")
+        compose.onNodeWithText(pickedBand.label).performClick()       // Q3 advances by itself
         awaitText("What vision correction do you use?")
-        repeat(ONBOARDING_REVIEW_STEP - 2) { compose.onNodeWithTag("onboarding_continue").performClick() }
+        repeat(ONBOARDING_REVIEW_STEP - 3) { compose.onNodeWithTag("onboarding_continue").performClick() }
 
         compose.onNodeWithText("YOUR ANSWERS").assertIsDisplayed()
         compose.onNodeWithTag("onboarding_continue").performClick()
@@ -75,5 +81,6 @@ class OnboardingStepFlowTest {
         assertNotNull("walking the whole flow must save a profile", saved)
         assertEquals(30, saved!!.age)
         assertEquals(pickedBand, saved!!.screenTime)
+        assertEquals(pickedExerciseTime, saved!!.exerciseTime)
     }
 }

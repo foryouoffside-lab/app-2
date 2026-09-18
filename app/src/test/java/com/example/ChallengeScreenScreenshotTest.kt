@@ -36,7 +36,11 @@ class ChallengeScreenScreenshotTest {
     fun `generated colour plate is usable on a phone`() {
         composeTestRule.setContent { EyeRestTheme { ChallengeScreen(age = 30) } }
         composeTestRule.onNodeWithTag("challenge_ishihara_style_plates").performScrollTo().performClick()
-        composeTestRule.onNodeWithText("Begin").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Begin — how to do it").performClick()
+        // The check has a one-step-at-a-time walkthrough before the round itself now;
+        // "Start" is the last step's version of "Next".
+        repeat(2) { composeTestRule.onNodeWithText("Next").performClick() }
+        composeTestRule.onNodeWithText("Start").performClick()
         composeTestRule.onRoot().captureRoboImage(
             filePath = "src/test/screenshots/ishihara-style-plate.png"
         )

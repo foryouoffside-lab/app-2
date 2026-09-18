@@ -1,6 +1,9 @@
 package com.example
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,9 +24,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import androidx.core.content.ContextCompat
+import androidx.core.app.ActivityCompat
 import com.example.data.AppDatabase
 import com.example.data.SessionLog
-import com.example.model.ProgressionEngine
 import com.example.model.Protocol
 import com.example.ui.drill.DrillScreen
 import com.example.ui.AppPillarTab
@@ -33,9 +37,15 @@ import com.example.ui.theme.AppTheme
 import com.example.ui.theme.EyeRestTheme
 import com.example.ui.theme.isDarkTheme
 import com.example.util.UserPrefs
+import com.example.util.BreakReminderScheduler
+import com.example.util.ScreenUseWatchService
+import com.example.util.BreakReminderSettings
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private lateinit var prefs: UserPrefs
+    private var pendingReminderSettings: BreakReminderSettings? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -43,7 +53,11 @@ class MainActivity : ComponentActivity() {
         val database = AppDatabase.getDatabase(this)
         val sessionLogDao = database.sessionLogDao()
 
-        val prefs = UserPrefs(this)
+        prefs = UserPrefs(this)
+
+        BreakReminderScheduler.createChannel(this)
+        BreakReminderScheduler.update(this, prefs.breakReminderSettings)
+        ScreenUseWatchService.sync(this)
 
         setContent {
             EyeRestTheme(themeMode = prefs.themeMode) {
@@ -73,10 +87,11 @@ class MainActivity : ComponentActivity() {
                     color = background
                 ) {
                     val savedProfile = prefs.wellnessProfile
-                    if (savedProfile == null || editingWellnessProfile) {
+                    if (savedProfile == null || editingWellnessProfile || prefs.needsExerciseTimeSetup) {
                         OnboardingScreen(
                             initialProfile = savedProfile,
                             initialAge = prefs.age ?: 30,
+                            initialStep = if (prefs.needsExerciseTimeSetup) 1 else 0,
                             onCompleted = {
                                 prefs.updateWellnessProfile(it)
                                 editingWellnessProfile = false
@@ -107,11 +122,6 @@ class MainActivity : ComponentActivity() {
                                                 durationSeconds = duration
                                             )
                                         )
-                                        ProgressionEngine.recordDrillCompletion(
-                                            categoryId = "TRACKING",
-                                            accuracy = 0.90f,
-                                            sessionLogDao = sessionLogDao
-                                        )
                                     }
                                     activeProtocol = null
                                 }
@@ -125,12 +135,14 @@ class MainActivity : ComponentActivity() {
                                 hapticsEnabled = prefs.hapticsEnabled,
                                 targetColor = prefs.targetColor,
                                 targetSpeed = prefs.targetSpeed,
+                                breakReminderSettings = prefs.breakReminderSettings,
                                 onAgeChange = { prefs.updateAge(it) },
                                 onThemeChange = { prefs.updateThemeMode(it) },
                                 onVoiceChange = { prefs.updateVoiceEnabled(it) },
                                 onHapticsChange = { prefs.updateHapticsEnabled(it) },
                                 onTargetColorChange = { prefs.updateTargetColor(it) },
                                 onTargetSpeedChange = { prefs.updateTargetSpeed(it) },
+                                onBreakReminderSettingsChange = ::updateBreakReminders,
                                 onRetakeAssessment = { editingWellnessProfile = true },
                                 onStartProtocol = { selected ->
                                     activeProtocol = selected
@@ -143,5 +155,45 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun updateBreakReminders(settings: BreakReminderSettings) {
+        val permissionNeeded = settings.enabled &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        if (permissionNeeded) {
+            pendingReminderSettings = settings
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                NOTIFICATION_PERMISSION_REQUEST
+            )
+        } else {
+            prefs.updateBreakReminderSettings(settings)
+            BreakReminderScheduler.update(this, settings)
+            ScreenUseWatchService.sync(this)
+        }
+    }
+
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != NOTIFICATION_PERMISSION_REQUEST) return
+        val requested = pendingReminderSettings
+        pendingReminderSettings = null
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED && requested != null) {
+            prefs.updateBreakReminderSettings(requested)
+            BreakReminderScheduler.update(this, requested)
+            ScreenUseWatchService.sync(this)
+        }
+    }
+
+    private companion object {
+        const val NOTIFICATION_PERMISSION_REQUEST = 2020
     }
 }

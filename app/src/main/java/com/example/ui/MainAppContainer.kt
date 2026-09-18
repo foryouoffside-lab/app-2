@@ -34,6 +34,7 @@ import com.example.model.Protocol
 import com.example.model.WellnessProfile
 import com.example.util.TargetColor
 import com.example.util.ThemeMode
+import com.example.util.BreakReminderSettings
 import com.example.model.ProtocolsRepository
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.ProgressScreen
@@ -58,12 +59,14 @@ fun MainAppContainer(
     hapticsEnabled: Boolean,
     targetColor: TargetColor,
     targetSpeed: Float,
+    breakReminderSettings: BreakReminderSettings,
     onAgeChange: (Int) -> Unit,
     onThemeChange: (ThemeMode) -> Unit,
     onVoiceChange: (Boolean) -> Unit,
     onHapticsChange: (Boolean) -> Unit,
     onTargetColorChange: (TargetColor) -> Unit,
     onTargetSpeedChange: (Float) -> Unit,
+    onBreakReminderSettingsChange: (BreakReminderSettings) -> Unit,
     onRetakeAssessment: () -> Unit,
     onStartProtocol: (Protocol) -> Unit,
     /**
@@ -83,7 +86,7 @@ fun MainAppContainer(
     val tabs = listOf(
         Triple(AppPillarTab.TODAY, Icons.Default.Visibility, "Today"),
         Triple(AppPillarTab.TRAIN, Icons.Default.FitnessCenter, "Train"),
-        Triple(AppPillarTab.CHALLENGE, Icons.Default.EmojiEvents, "Challenges & Tests"),
+        Triple(AppPillarTab.CHALLENGE, Icons.Default.EmojiEvents, "Tests"),
         Triple(AppPillarTab.PROGRESS, Icons.Default.Insights, "Progress"),
         Triple(AppPillarTab.PROFILE, Icons.Default.Person, "Profile")
     )
@@ -103,7 +106,7 @@ fun MainAppContainer(
                             selected = activeTab == tab,
                             onClick = { onTabChange(tab) },
                             icon = { Icon(icon, contentDescription = label) },
-                            label = { Text(label) },
+                            label = { Text(label, maxLines = 1) },
                             alwaysShowLabel = false,
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = AppTheme.colors.teal,
@@ -141,12 +144,14 @@ fun MainAppContainer(
                     hapticsEnabled = hapticsEnabled,
                     targetColor = targetColor,
                     targetSpeed = targetSpeed,
+                    breakReminderSettings = breakReminderSettings,
                     onAgeChange = onAgeChange,
                     onThemeChange = onThemeChange,
                     onVoiceChange = onVoiceChange,
                     onHapticsChange = onHapticsChange,
                     onTargetColorChange = onTargetColorChange,
                     onTargetSpeedChange = onTargetSpeedChange,
+                    onBreakReminderSettingsChange = onBreakReminderSettingsChange,
                     onRetakeAssessment = onRetakeAssessment
                 )
             }

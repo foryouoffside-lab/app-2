@@ -1,5 +1,7 @@
 package com.example.model
 
+import com.example.R
+
 enum class EvidenceGrade { A, B, C, D, E }
 
 enum class DigitalReproducibility { FULL, PARTIAL, EQUIPMENT_REQUIRED }
@@ -137,7 +139,17 @@ data class StudioDrill(
      * Required for a [Practice.HABIT], which is nothing but its steps, and allowed on a
      * guided drill whose set-up has to happen before the timer is any use.
      */
-    val howTo: List<String> = emptyList()
+    val howTo: List<String> = emptyList(),
+    /**
+     * A demo image per [howTo] step, same index, null where none exists yet. Most drills
+     * have no images until they are illustrated one at a time.
+     */
+    val howToImages: List<Int?> = emptyList(),
+    /**
+     * A looping demo clip per [howTo] step, same index as [howToImages]. Takes priority
+     * over the image at that index when both exist.
+     */
+    val howToVideos: List<Int?> = emptyList()
 )
 
 private val citt = DrillSource(
@@ -347,6 +359,16 @@ object StudioDrillRepository {
                 "The instant it doubles or blurs, stop and hold there. That point is the whole exercise; do not push through it.",
                 "Move it back out until it is single and clear again, then start the next push-up. Stop for good if you get a headache or the doubling stops clearing."
             ),
+            howToImages = listOf(
+                R.drawable.howto_pencil_object,
+                R.drawable.howto_pencil_hold,
+                R.drawable.howto_pencil_eyes,
+                R.drawable.howto_pencil_diplopia,
+                R.drawable.howto_pencil_hold
+            ),
+            // Step 3 gets the real convergence clip; PrepSteps prefers video over image
+            // when both exist, so howto_pencil_eyes.png is the fallback if it fails to load.
+            howToVideos = listOf(null, null, R.raw.howto_pencil_convergence, null, null),
             aliases = listOf("Pencil push-ups", "Zooming", "Thumb tromboning", "Pen convergence")),
         ciComponent("brock_string", "Brock String", StudioStimulus.BROCK_STRING,
             "Physical string and fixation beads", "A clinically used component of multicomponent therapy; independent efficacy has not been established.", EvidenceGrade.D,
@@ -357,7 +379,17 @@ object StudioDrillRepository {
                 "Tie the far end to a door handle and hold the near end against the bridge of your nose, so the string runs straight out from between your eyes.",
                 "Look at one bead at a time. Done right you see two strings crossing exactly at that bead, in an X.",
                 "Move your gaze bead by bead and watch where the X sits. If it lands in front of or behind the bead, that is the thing being worked on -- not a mistake to force."
-            )),
+            ),
+            howToImages = listOf(
+                R.drawable.howto_brock_string_setup,
+                R.drawable.howto_brock_string_setup,
+                R.drawable.howto_brock_string_hold,
+                R.drawable.howto_brock_string_near_x,
+                R.drawable.howto_brock_string_mid_x
+            ),
+            // Step 5 gets the crossing-point-sliding clip; PrepSteps prefers video over
+            // image when both exist, so howto_brock_string_mid_x.png is the fallback.
+            howToVideos = listOf(null, null, null, null, R.raw.howto_brock_string_crossing)),
         ciComponent(
             "dot_card", "Dot-Card Convergence", StudioStimulus.VERGENCE_STEP,
             "A clinician-supplied dot card and your prescribed near correction",
@@ -373,6 +405,15 @@ object StudioDrillRepository {
                 "Work back toward the far end, then relax by looking into the distance. Never exceed the duration or frequency written by your orthoptist.",
                 "Stop if double vision does not clear, your eyes remain crossed, or you develop marked headache, nausea, dizziness or pain."
             ),
+            howToImages = listOf(
+                R.drawable.howto_dot_card_setup,
+                R.drawable.howto_dot_card_hold,
+                R.drawable.howto_dot_card_far,
+                R.drawable.howto_dot_card_near,
+                R.drawable.howto_dot_card_hold
+            ),
+            // Step 6 is a pure safety warning with no new visual to teach, so it's left
+            // without an image -- PrepSteps falls back to a numbered placeholder there.
             aliases = listOf("Convergence dot card", "Orthoptic dot card"),
             additionalSources = listOf(nhsOrthopticExercises, nhsDotCard)
         ),
@@ -391,6 +432,15 @@ object StudioDrillRepository {
                 "Hold only for the time your orthoptist set, then look far away or close your eyes for an equal relaxation period.",
                 "Stop if double vision persists after relaxing, your eyes remain crossed, or symptoms markedly worsen."
             ),
+            howToImages = listOf(
+                R.drawable.howto_stereogram_setup,
+                R.drawable.howto_stereogram_near_hold,
+                R.drawable.howto_stereogram_fusion,
+                R.drawable.howto_stereogram_distance_hold,
+                R.drawable.howto_stereogram_near_hold
+            ),
+            // Step 6 is a pure safety warning with no new visual to teach, so it's left
+            // without an image -- PrepSteps falls back to a numbered placeholder there.
             aliases = listOf("Cat stereogram", "Bucket stereogram", "LifeSaver card", "Free-space fusion card"),
             additionalSources = listOf(nhsOrthopticExercises, obvatPilot)
         ),
@@ -446,7 +496,17 @@ object StudioDrillRepository {
                 "On the near cue, look at the near target and wait until the detail actually sharpens before you move. Waiting for it to clear is the exercise.",
                 "On the far cue, do the same at distance. Both eyes stay open throughout.",
                 "Stop if it aches, blurs and will not clear, or gives you a headache. Blur that keeps refusing to clear is worth an eye test, not more reps."
+            ),
+            howToImages = listOf(
+                R.drawable.howto_accommodative_rock_setup,
+                null,
+                R.drawable.howto_accommodative_rock_near,
+                R.drawable.howto_accommodative_rock_far,
+                null
             )
+            // Steps 2 and 5 are pure explanation/safety text with no new visual to teach,
+            // so they're left without images -- PrepSteps falls back to a numbered
+            // placeholder there, same pattern as the other drills' non-visual steps.
         ),
         StudioDrill(
             id = "lens_flipper_facility", name = "Lens-Flipper Accommodative Facility", issue = EyeIssue.FOCUS,
@@ -567,6 +627,17 @@ object StudioDrillRepository {
                 "After a minute, rest until the dizziness settles. Do the next bouts nodding up and down instead of side to side.",
                 "Mild dizziness during and just after is expected. Stop if it builds through the session, or for headache, nausea that does not settle, or any new visual symptom."
             ),
+            howToImages = listOf(
+                null,
+                R.drawable.howto_vor_hold,
+                R.drawable.howto_vor_horizontal,
+                R.drawable.howto_vor_horizontal,
+                R.drawable.howto_vor_vertical,
+                null
+            ),
+            // Step 1 is a sit-down safety note and step 6 is a safety reminder, neither has
+            // a new visual to teach. Step 4 (move faster) reuses the horizontal image --
+            // same posture, just paced differently, so no new image is needed.
             sources = listOf(vestibularCpg)
         ),
         StudioDrill(
@@ -721,7 +792,17 @@ object StudioDrillRepository {
                 "Temple: the hollow at the outer corner, a finger's width out from the eye.",
                 "Under-eye: the bony ridge below the pupil, about a finger's width under the lower lid.",
                 "Small circles, light pressure, four seconds each. If anything is sharp or sore, stop."
+            ),
+            howToImages = listOf(
+                null,
+                R.drawable.howto_orbital_acupressure_inner,
+                R.drawable.howto_orbital_acupressure_brow,
+                R.drawable.howto_orbital_acupressure_temple,
+                R.drawable.howto_orbital_acupressure_undereye,
+                null
             )
+            // Steps 1 and 6 are prep/technique reminders with no new location to show, so
+            // they're left without images -- PrepSteps falls back to a numbered placeholder.
         ),
 
         // ---- lid care: the part of dry eye that is not blinking --------------------
@@ -929,6 +1010,8 @@ private fun ciComponent(
     dose: DrillDose,
     equipmentRequired: Boolean = false,
     howTo: List<String> = emptyList(),
+    howToImages: List<Int?> = emptyList(),
+    howToVideos: List<Int?> = emptyList(),
     aliases: List<String> = emptyList(),
     additionalSources: List<DrillSource> = emptyList()
 ) = StudioDrill(
@@ -948,7 +1031,8 @@ private fun ciComponent(
     safetyLevel = if (equipmentRequired) "HARDWARE-DEPENDENT" else "CONDITION-SPECIFIC",
     generalUserStatus = if (equipmentRequired) GeneralUserStatus.CLINICAL_EQUIPMENT_REQUIRED else GeneralUserStatus.CONDITION_SPECIFIC,
     reviewStatus = ProfessionalReviewStatus.PROFESSIONAL_REVIEW_REQUIRED, stimulus = stimulus, dose = dose,
-    sources = (listOf(citt, cittArt, aaoCi, ciMeta) + additionalSources).distinctBy { it.url }, howTo = howTo
+    sources = (listOf(citt, cittArt, aaoCi, ciMeta) + additionalSources).distinctBy { it.url }, howTo = howTo,
+    howToImages = howToImages, howToVideos = howToVideos
 )
 
 private fun performanceDrill(

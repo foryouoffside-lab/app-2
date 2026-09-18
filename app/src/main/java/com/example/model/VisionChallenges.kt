@@ -51,7 +51,16 @@ data class VisionChallenge(
     /** Seconds one step takes in practice, including reading its prompt. */
     val secondsPerStep: Int,
     /** Seconds to read the setup screen and get into position before the first step. */
-    val setupSeconds: Int
+    val setupSeconds: Int,
+    /**
+     * The steps, in order, walked one at a time before the test starts.
+     *
+     * Empty for every check the runner can talk through on its own header text (most of
+     * them). Only a check whose setup has to happen exactly right before the first
+     * measurement means anything -- distance, which eye, which hand -- needs this instead
+     * of a bulleted intro nobody reads twice.
+     */
+    val howTo: List<String> = emptyList()
 ) {
     val durationMinutes: Int = ceil((setupSeconds + steps * secondsPerStep) / 60.0).toInt()
 }
@@ -85,7 +94,13 @@ object VisionChallengeRepository {
             kind = ChallengeKind.CENTRAL_GRID,
             measures = "Self-reported central distortion",
             evidenceLabel = "Amsler-style observation",
-            steps = 2, secondsPerStep = 25, setupSeconds = 45
+            steps = 2, secondsPerStep = 25, setupSeconds = 45,
+            howTo = listOf(
+                "Use your usual reading glasses, at your normal reading distance.",
+                "We'll check your right eye first. Cover your left eye with your palm, without pressing on it.",
+                "Keep looking at the red dot in the centre. Without chasing the lines, notice if any area looks wavy, missing or dark.",
+                "Once your right eye is checked, cover it instead and repeat these same steps for your left eye."
+            )
         ),
         VisionChallenge(
             id = "near_clarity",
@@ -97,7 +112,15 @@ object VisionChallengeRepository {
             evidenceLabel = "Screen-size dependent",
             // The staircase stops early once two of three are missed, so this is the
             // typical run rather than the 42-presentation ceiling.
-            steps = 24, secondsPerStep = 3, setupSeconds = 75
+            steps = 24, secondsPerStep = 3, setupSeconds = 75,
+            howTo = listOf(
+                "Sit somewhere with bright, even light, and hold the phone about 40 cm away — roughly a forearm's length from your nose.",
+                "Match the line below to the short edge of a real bank card. This scales the test to your screen.",
+                "We'll test your right eye first. Cover your left eye with your palm, without pressing on it.",
+                "Keep your right eye open. A ring like this will appear, with a small gap on one side.",
+                "Tap the arrow that matches where the gap is. Guess if you're unsure — don't skip it.",
+                "Once your right eye is finished, cover it instead and repeat these same steps for your left eye."
+            )
         ),
         VisionChallenge(
             id = "reading_clarity",
@@ -107,7 +130,12 @@ object VisionChallengeRepository {
             kind = ChallengeKind.READING_CLARITY,
             measures = "Near-reading comfort on this device",
             evidenceLabel = "40 cm self-check",
-            steps = 5, secondsPerStep = 6, setupSeconds = 25
+            steps = 5, secondsPerStep = 6, setupSeconds = 25,
+            howTo = listOf(
+                "Use your normal reading glasses, or the reading zone of progressive lenses.",
+                "Sit under bright, even light and hold the phone 40 cm away.",
+                "Read from the largest line down. Tap the smallest line you can read without squinting."
+            )
         ),
         VisionChallenge(
             id = "astigmatism_fan",
@@ -117,7 +145,13 @@ object VisionChallengeRepository {
             kind = ChallengeKind.ASTIGMATISM_FAN,
             measures = "Self-reported directional blur",
             evidenceLabel = "Qualitative observation",
-            steps = 2, secondsPerStep = 15, setupSeconds = 40
+            steps = 2, secondsPerStep = 15, setupSeconds = 40,
+            howTo = listOf(
+                "Use your usual glasses, in bright, even light, at a comfortable distance.",
+                "We'll check your right eye first. Cover your left eye with your palm, without pressing on it.",
+                "Look at the centre of the fan. All lines are drawn equally — notice if any look darker or sharper than the rest.",
+                "Once your right eye is checked, cover it instead and repeat these same steps for your left eye."
+            )
         ),
         VisionChallenge(
             id = "ishihara_style_plates",
@@ -127,7 +161,12 @@ object VisionChallengeRepository {
             kind = ChallengeKind.ISHIHARA_STYLE_PLATES,
             measures = "Pseudoisochromatic plate responses",
             evidenceLabel = "Original, non-diagnostic plates",
-            steps = 6, secondsPerStep = 10, setupSeconds = 45
+            steps = 6, secondsPerStep = 10, setupSeconds = 45,
+            howTo = listOf(
+                "Turn off night mode, colour filters and any extra-dim display setting.",
+                "Use neutral, daylight-like room lighting and your normal screen brightness.",
+                "At reading distance, choose the number formed by the coloured dots — or choose \"No number\" if you can't see one."
+            )
         ),
         VisionChallenge(
             id = "red_green_balance",
@@ -137,7 +176,12 @@ object VisionChallengeRepository {
             kind = ChallengeKind.RED_GREEN_BALANCE,
             measures = "Subjective red–green clarity balance",
             evidenceLabel = "Observation, not refraction",
-            steps = 1, secondsPerStep = 20, setupSeconds = 35
+            steps = 1, secondsPerStep = 20, setupSeconds = 35,
+            howTo = listOf(
+                "Use your usual near correction, in softly lit surroundings, and hold the phone 40 cm away.",
+                "Compare the identical dark rings on the red and green halves.",
+                "Tap whichever side's rings look darker or clearer — or say they look the same."
+            )
         ),
         VisionChallenge(
             id = "cover_alignment",
@@ -147,7 +191,13 @@ object VisionChallengeRepository {
             kind = ChallengeKind.COVER_ALIGNMENT,
             measures = "Observed fixation movement",
             evidenceLabel = "Helper-assisted check",
-            steps = 2, secondsPerStep = 25, setupSeconds = 60
+            steps = 2, secondsPerStep = 25, setupSeconds = 60,
+            howTo = listOf(
+                "This check needs a helper to watch your eyes while you fixate on a target.",
+                "Fixate on a small target about 33 cm away, in bright light.",
+                "Your helper covers your left eye for 2 seconds, without pressing it, and watches only your right eye for movement.",
+                "They repeat on the other side: cover your right eye and watch your left eye."
+            )
         ),
         VisionChallenge(
             id = "near_point_convergence",
@@ -157,7 +207,13 @@ object VisionChallengeRepository {
             kind = ChallengeKind.NEAR_POINT_CONVERGENCE,
             measures = "Near-point distance baseline",
             evidenceLabel = "Helper and ruler required",
-            steps = 3, secondsPerStep = 25, setupSeconds = 75
+            steps = 3, secondsPerStep = 25, setupSeconds = 75,
+            howTo = listOf(
+                "Use your normal near correction, and have a helper and a centimetre ruler ready.",
+                "Hold a detailed pen target about 50 cm away, then move it toward the bridge of your nose over about 10 seconds.",
+                "Your helper measures the distance when it first looks double, or one eye visibly stops following.",
+                "Enter that measured distance, then repeat for a total of three trials."
+            )
         ),
         VisionChallenge(
             id = "contrast_spotting",
@@ -167,7 +223,12 @@ object VisionChallengeRepository {
             kind = ChallengeKind.CONTRAST_SPOTTING,
             measures = "On-device contrast performance",
             evidenceLabel = "Compare only on this device",
-            steps = 10, secondsPerStep = 5, setupSeconds = 35
+            steps = 10, secondsPerStep = 5, setupSeconds = 35,
+            howTo = listOf(
+                "Set a comfortable, fixed screen brightness before you start.",
+                "Keep the phone at your usual reading distance.",
+                "Tap the circle that looks slightly stronger — more solid — than the other three."
+            )
         ),
         VisionChallenge(
             id = "peripheral_awareness",
@@ -177,7 +238,12 @@ object VisionChallengeRepository {
             kind = ChallengeKind.PERIPHERAL_AWARENESS,
             measures = "Fixation and cue awareness",
             evidenceLabel = "Training challenge",
-            steps = 8, secondsPerStep = 7, setupSeconds = 35
+            steps = 8, secondsPerStep = 7, setupSeconds = 35,
+            howTo = listOf(
+                "Use both eyes and hold the phone at reading distance.",
+                "Keep looking at the centre cross the whole time — do not chase the cue with your eyes.",
+                "A brief dot will flash near one edge. After it disappears, tap the direction where it appeared."
+            )
         ),
         VisionChallenge(
             id = "visual_reaction",
@@ -187,7 +253,12 @@ object VisionChallengeRepository {
             kind = ChallengeKind.VISUAL_REACTION,
             measures = "Median tap response time",
             evidenceLabel = "Performance, not eye health",
-            steps = 10, secondsPerStep = 4, setupSeconds = 35
+            steps = 10, secondsPerStep = 4, setupSeconds = 35,
+            howTo = listOf(
+                "Rest the phone on a stable surface, or hold it steadily.",
+                "Keep your attention near the centre of the screen.",
+                "Tap the amber target the instant it appears, anywhere on the screen."
+            )
         ),
         VisionChallenge(
             id = "color_discrimination",
@@ -197,7 +268,12 @@ object VisionChallengeRepository {
             kind = ChallengeKind.COLOR_DISCRIMINATION,
             measures = "On-device hue discrimination",
             evidenceLabel = "Not a colour-blindness test",
-            steps = 6, secondsPerStep = 5, setupSeconds = 35
+            steps = 6, secondsPerStep = 5, setupSeconds = 35,
+            howTo = listOf(
+                "Use a comfortable fixed brightness, without a colour filter or night mode.",
+                "Keep the phone at reading distance.",
+                "Tap the circle whose hue looks different from the other three."
+            )
         ),
         VisionChallenge(
             id = "amblyopia_play",
@@ -207,7 +283,12 @@ object VisionChallengeRepository {
             kind = ChallengeKind.AMBLYOPIA_PLAY,
             measures = "Close-up visual search accuracy",
             evidenceLabel = "Play activity, not treatment",
-            steps = 12, secondsPerStep = 5, setupSeconds = 40
+            steps = 12, secondsPerStep = 5, setupSeconds = 40,
+            howTo = listOf(
+                "Wear your prescribed glasses and use both eyes, unless a professional has prescribed patching for this activity.",
+                "A target symbol appears at the top of the screen.",
+                "Find and tap the same symbol in the grid below it."
+            )
         )
     )
 }
@@ -233,6 +314,22 @@ fun acuityEyesDiffer(rightLogMar: Double?, leftLogMar: Double?): Boolean = when 
     rightLogMar == null && leftLogMar == null -> false
     rightLogMar == null || leftLogMar == null -> true
     else -> abs(rightLogMar - leftLogMar) >= 0.19
+}
+
+/**
+ * What today's two thresholds are actually worth doing about, in the order that matters:
+ * a missing result first, then a gap between the eyes, then how small the smallest gap
+ * found was, and only then reassurance. Never a diagnosis -- only what to try next.
+ */
+fun nearClarityRecommendation(rightLogMar: Double?, leftLogMar: Double?): String = when {
+    rightLogMar == null && leftLogMar == null ->
+        "No threshold was recorded for either eye. Repeat in brighter, even light, and check the on-screen line still matches a bank card's edge."
+    acuityEyesDiffer(rightLogMar, leftLogMar) ->
+        "One eye read smaller gaps than the other today. A single step of difference is common retest noise, but a gap that repeats is worth mentioning at a comprehensive eye exam."
+    listOfNotNull(rightLogMar, leftLogMar).max() > 0.21 ->
+        "Both eyes matched, but the smallest gap either found was larger than a 20/32 equivalent. If near tasks already feel effortful, a comprehensive eye exam can check whether your correction needs updating."
+    else ->
+        "Both eyes found a similar, comfortably small gap today. Keep using your usual correction and repeat this occasionally under the same light and distance."
 }
 
 fun medianMillis(samples: List<Long>): Long? {
