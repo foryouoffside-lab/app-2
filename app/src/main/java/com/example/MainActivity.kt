@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
         ScreenUseWatchService.sync(this)
 
         setContent {
-            EyeRestTheme(themeMode = prefs.themeMode) {
+            EyeRestTheme(themeMode = prefs.themeMode, trueBlackEnabled = prefs.trueBlackEnabled) {
                 val coroutineScope = rememberCoroutineScope()
                 var activeProtocol by remember { mutableStateOf<Protocol?>(null) }
                 var editingWellnessProfile by remember { mutableStateOf(false) }
@@ -87,11 +87,10 @@ class MainActivity : ComponentActivity() {
                     color = background
                 ) {
                     val savedProfile = prefs.wellnessProfile
-                    if (savedProfile == null || editingWellnessProfile || prefs.needsExerciseTimeSetup) {
+                    if (savedProfile == null || editingWellnessProfile) {
                         OnboardingScreen(
                             initialProfile = savedProfile,
                             initialAge = prefs.age ?: 30,
-                            initialStep = if (prefs.needsExerciseTimeSetup) 1 else 0,
                             onCompleted = {
                                 prefs.updateWellnessProfile(it)
                                 editingWellnessProfile = false
@@ -140,6 +139,8 @@ class MainActivity : ComponentActivity() {
                                 onThemeChange = { prefs.updateThemeMode(it) },
                                 onVoiceChange = { prefs.updateVoiceEnabled(it) },
                                 onHapticsChange = { prefs.updateHapticsEnabled(it) },
+                                trueBlackEnabled = prefs.trueBlackEnabled,
+                                onTrueBlackChange = { prefs.updateTrueBlackEnabled(it) },
                                 onTargetColorChange = { prefs.updateTargetColor(it) },
                                 onTargetSpeedChange = { prefs.updateTargetSpeed(it) },
                                 onBreakReminderSettingsChange = ::updateBreakReminders,

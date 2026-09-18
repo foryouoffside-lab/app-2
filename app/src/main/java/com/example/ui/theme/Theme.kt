@@ -67,12 +67,23 @@ fun isDarkTheme(mode: ThemeMode): Boolean = when (mode) {
 @Composable
 fun EyeRestTheme(
     themeMode: ThemeMode = ThemeMode.DARK,
+    trueBlackEnabled: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val dark = isDarkTheme(themeMode)
-    CompositionLocalProvider(LocalAppPalette provides if (dark) DarkPalette else LightPalette) {
+    val darkPalette = if (trueBlackEnabled) TrueBlackPalette else DarkPalette
+    CompositionLocalProvider(LocalAppPalette provides if (dark) darkPalette else LightPalette) {
         MaterialTheme(
-            colorScheme = if (dark) ErgonomicDarkColorScheme else DaylightColorScheme,
+            colorScheme = when {
+                !dark -> DaylightColorScheme
+                trueBlackEnabled -> ErgonomicDarkColorScheme.copy(
+                    background = TrueBlackBg,
+                    surface = TrueBlackSurface,
+                    surfaceVariant = TrueBlackSurfaceElevated,
+                    outline = TrueBlackBorder
+                )
+                else -> ErgonomicDarkColorScheme
+            },
             typography = Typography,
             content = content
         )

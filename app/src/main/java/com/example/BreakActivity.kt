@@ -55,7 +55,7 @@ class BreakActivity : ComponentActivity() {
 
         val prefs = UserPrefs(this)
         setContent {
-            EyeRestTheme(themeMode = prefs.themeMode) {
+            EyeRestTheme(themeMode = prefs.themeMode, trueBlackEnabled = prefs.trueBlackEnabled) {
                 BreakCountdown(
                     voiceEnabled = prefs.voiceEnabled,
                     hapticsEnabled = prefs.hapticsEnabled,
@@ -111,7 +111,7 @@ private fun BreakCountdown(
         ) {
             Text(
                 "LOOK 20 FEET AWAY",
-                color = AppTheme.colors.teal,
+                color = AppTheme.colors.amber,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.6.sp

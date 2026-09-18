@@ -51,12 +51,6 @@ import com.example.model.ExercisePhase
 import com.example.model.ExerciseType
 import com.example.model.Protocol
 import com.example.ui.theme.AppTheme
-import com.example.ui.theme.AmberPrimary
-import com.example.ui.theme.BiologicalTeal
-import com.example.ui.theme.CharcoalSurface
-import com.example.ui.theme.MutedBorder
-import com.example.ui.theme.TextHighEmphasis
-import com.example.ui.theme.TextMediumEmphasis
 import com.example.ui.theme.ZincSurfaceElevated
 import java.util.UUID
 
@@ -178,7 +172,7 @@ fun CustomRoutineBuilderDialog(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(if (isOverMaxLimit) Color(0xFFEF4444) else AppTheme.colors.teal)
+                                .background(if (isOverMaxLimit) Color(0xFFEF4444) else AppTheme.colors.amber)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -261,7 +255,7 @@ fun CustomRoutineBuilderDialog(
                                     ) {
                                         Text(
                                             text = "+ time",
-                                            color = AppTheme.colors.teal,
+                                            color = AppTheme.colors.amber,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

@@ -2,7 +2,6 @@ package com.example
 
 import com.example.model.ClinicalContext
 import com.example.model.DailyPlanRepository
-import com.example.model.ExerciseTimeBand
 import com.example.model.GeneralUserStatus
 import com.example.model.Practice
 import com.example.model.ScreenTimeBand
@@ -10,31 +9,23 @@ import com.example.model.VisionCorrection
 import com.example.model.WellnessProfile
 import com.example.model.WellnessSymptom
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DailyPlanTest {
 
     @Test
-    fun `available time limits drill count without changing evidence doses`() {
-        val symptoms = setOf(
-            WellnessSymptom.DRY_GRITTY,
-            WellnessSymptom.TIRED_STRAIN,
-            WellnessSymptom.TENSION_HEADACHE
-        )
-        val short = DailyPlanRepository.forDay(
-            profile(symptoms = symptoms, exerciseTime = ExerciseTimeBand.FIVE_TO_TEN),
-            dayKey = 100
-        )
-        val long = DailyPlanRepository.forDay(
-            profile(symptoms = symptoms, exerciseTime = ExerciseTimeBand.FIFTEEN_TO_TWENTY),
-            dayKey = 100
+    fun `typical screen-use profile gets a guided set of about four minutes`() {
+        val plan = DailyPlanRepository.forDay(
+            profile(screenTime = ScreenTimeBand.FOUR_TO_EIGHT, symptoms = setOf(WellnessSymptom.TIRED_STRAIN))
         )
 
-        assertEquals(3, short.guided.size)
-        assertEquals(3, long.guided.size)
-        assertEquals(short.guided.first().protocol.totalSeconds, long.guided.first().protocol.totalSeconds)
+        assertEquals(
+            listOf("complete_blink_squeeze", "screen_break_20_20_20", "palming"),
+            plan.guided.map { it.drill.id }
+        )
+        // 90s trial-dosed blink practice + 20s break + 120s comfort rest = 3:50.
+        assertEquals(230, plan.guided.sumOf { it.protocol.totalSeconds })
     }
 
     @Test
@@ -44,8 +35,7 @@ class DailyPlanTest {
                 screenTime = ScreenTimeBand.FOUR_TO_EIGHT,
                 correction = VisionCorrection.CONTACTS,
                 symptoms = setOf(WellnessSymptom.DRY_GRITTY)
-            ),
-            dayKey = 100
+            )
         )
 
         assertEquals(
@@ -57,8 +47,7 @@ class DailyPlanTest {
     @Test
     fun `glasses change advice and do not invent an eye exercise`() {
         val plan = DailyPlanRepository.forDay(
-            profile(screenTime = ScreenTimeBand.UNDER_TWO, correction = VisionCorrection.GLASSES),
-            dayKey = 101
+            profile(screenTime = ScreenTimeBand.UNDER_TWO, correction = VisionCorrection.GLASSES)
         )
 
         assertTrue(plan.guided.isEmpty())
@@ -66,28 +55,26 @@ class DailyPlanTest {
     }
 
     @Test
-    fun `optional comfort drill rotates on consecutive days`() {
+    fun `optional comfort drill is the same every day for the same profile`() {
         val input = profile(symptoms = setOf(WellnessSymptom.TENSION_HEADACHE))
-        val first = DailyPlanRepository.forDay(input, 200).guided.single().drill.id
-        val second = DailyPlanRepository.forDay(input, 201).guided.single().drill.id
+        val first = DailyPlanRepository.forDay(input).guided.single { !it.isCore }.drill.id
+        val second = DailyPlanRepository.forDay(input).guided.single { !it.isCore }.drill.id
 
-        assertTrue(first in setOf("palming", "eye_range_of_motion"))
-        assertTrue(second in setOf("palming", "eye_range_of_motion"))
-        assertFalse("optional work should not repeat on adjacent days", first == second)
+        assertEquals("palming", first)
+        assertEquals(first, second)
     }
 
     @Test
-    fun `rotating habit does not repeat while alternatives are available`() {
+    fun `supporting habit is picked by clinical priority, not date`() {
         val input = profile(
             screenTime = ScreenTimeBand.FOUR_TO_EIGHT,
             correction = VisionCorrection.GLASSES,
             symptoms = setOf(WellnessSymptom.DRY_GRITTY)
         )
-        val ids = (300..302).map { day ->
-            DailyPlanRepository.forDay(input, day).habits.single { !it.isCore }.drill.id
-        }
+        val ids = (1..3).map { DailyPlanRepository.forDay(input).habits.single { !it.isCore }.drill.id }
 
-        assertEquals(3, ids.toSet().size)
+        // Dryness outranks glasses/screen-setup, so the same habit wins every time.
+        assertEquals(listOf("blink_awareness", "blink_awareness", "blink_awareness"), ids)
     }
 
     @Test
@@ -99,8 +86,7 @@ class DailyPlanTest {
                     ClinicalContext.AMBLYOPIA_OR_EYE_TURN,
                     ClinicalContext.NEURO_RECOVERY
                 )
-            ),
-            dayKey = 100
+            )
         )
 
         assertTrue(plan.guided.isEmpty())
@@ -116,7 +102,7 @@ class DailyPlanTest {
             profile(urgentSymptoms = true),
             profile(clinicalContexts = setOf(ClinicalContext.RECENT_SURGERY_OR_INJURY))
         ).forEach { input ->
-            val plan = DailyPlanRepository.forDay(input, 100)
+            val plan = DailyPlanRepository.forDay(input)
             assertTrue(plan.isPausedForSafety)
             assertTrue(plan.guided.isEmpty())
             assertTrue(plan.habits.isEmpty())
@@ -125,7 +111,7 @@ class DailyPlanTest {
 
     @Test
     fun `children get outdoor prevention as a habit not an eyesight drill`() {
-        val plan = DailyPlanRepository.forDay(profile(age = 12), dayKey = 100)
+        val plan = DailyPlanRepository.forDay(profile(age = 12))
         val outdoor = plan.habits.single { it.drill.id == "outdoor_daylight" }
 
         assertTrue(outdoor.isCore)
@@ -139,7 +125,6 @@ class DailyPlanTest {
         correction: VisionCorrection = VisionCorrection.NONE,
         symptoms: Set<WellnessSymptom> = emptySet(),
         clinicalContexts: Set<ClinicalContext> = emptySet(),
-        urgentSymptoms: Boolean = false,
-        exerciseTime: ExerciseTimeBand = ExerciseTimeBand.FIFTEEN_TO_TWENTY
-    ) = WellnessProfile(age, screenTime, correction, symptoms, clinicalContexts, urgentSymptoms, exerciseTime)
+        urgentSymptoms: Boolean = false
+    ) = WellnessProfile(age, screenTime, correction, symptoms, clinicalContexts, urgentSymptoms)
 }

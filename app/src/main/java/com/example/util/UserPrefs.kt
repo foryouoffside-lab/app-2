@@ -5,7 +5,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.model.ClinicalContext
-import com.example.model.ExerciseTimeBand
 import com.example.model.ScreenTimeBand
 import com.example.model.VisionCorrection
 import com.example.model.WellnessProfile
@@ -47,8 +46,31 @@ const val DEFAULT_TARGET_SPEED = 1.0f
 /** The multiplier as the user reads it: "1.0x" is the pace the drill was written at. */
 fun targetSpeedLabel(speed: Float): String = String.format("%.1f×", speed)
 
-/** Ages outside this range are almost certainly a typo, and the drill maths needs a sane input. */
-val SUPPORTED_AGES = 8..100
+/** Adults only: this is a self-directed comfort tool, not a paediatric one. */
+val SUPPORTED_AGES = 18..100
+
+/**
+ * Age, offered as a bracket rather than an exact figure. Nobody needs to admit to 47
+ * specifically, and the drill maths only ever needed a representative age per bracket.
+ */
+enum class AgeRange(val label: String, val representativeAge: Int) {
+    AGE_18_24("18–24", 21),
+    AGE_25_34("25–34", 30),
+    AGE_35_44("35–44", 40),
+    AGE_45_54("45–54", 50),
+    AGE_55_64("55–64", 60),
+    AGE_65_PLUS("65+", 70)
+}
+
+/** Maps a stored exact age back to its bracket, for showing the current selection. */
+fun ageRangeFor(age: Int): AgeRange = when {
+    age < 25 -> AgeRange.AGE_18_24
+    age < 35 -> AgeRange.AGE_25_34
+    age < 45 -> AgeRange.AGE_35_44
+    age < 55 -> AgeRange.AGE_45_54
+    age < 65 -> AgeRange.AGE_55_64
+    else -> AgeRange.AGE_65_PLUS
+}
 
 /**
  * Age and theme, held in SharedPreferences and mirrored into Compose state so the UI
@@ -67,12 +89,6 @@ class UserPrefs(context: Context) {
     var wellnessProfile by mutableStateOf(loadWellnessProfile())
         private set
 
-    /** Existing installs must answer the newly added availability question once. */
-    var needsExerciseTimeSetup by mutableStateOf(
-        prefs.getBoolean(KEY_PROFILE_COMPLETE, false) && !prefs.contains(KEY_EXERCISE_TIME)
-    )
-        private set
-
     var themeMode by mutableStateOf(
         runCatching { ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "") }
             .getOrDefault(ThemeMode.DARK)
@@ -85,6 +101,10 @@ class UserPrefs(context: Context) {
 
     /** Haptic cues at stage boundaries and on completion. */
     var hapticsEnabled by mutableStateOf(prefs.getBoolean(KEY_HAPTICS, true))
+        private set
+
+    /** Pure black night ground instead of the warm charcoal default. */
+    var trueBlackEnabled by mutableStateOf(prefs.getBoolean(KEY_TRUE_BLACK, false))
         private set
 
     /** Local notification schedule; no login, server or analytics identifier is needed. */
@@ -108,6 +128,11 @@ class UserPrefs(context: Context) {
     fun updateHapticsEnabled(enabled: Boolean) {
         hapticsEnabled = enabled
         prefs.edit().putBoolean(KEY_HAPTICS, enabled).apply()
+    }
+
+    fun updateTrueBlackEnabled(enabled: Boolean) {
+        trueBlackEnabled = enabled
+        prefs.edit().putBoolean(KEY_TRUE_BLACK, enabled).apply()
     }
 
     fun updateBreakReminderSettings(value: BreakReminderSettings) {
@@ -158,7 +183,6 @@ class UserPrefs(context: Context) {
         if (value.age !in SUPPORTED_AGES) return false
         age = value.age
         wellnessProfile = value
-        needsExerciseTimeSetup = false
         prefs.edit()
             .putInt(KEY_AGE, value.age)
             .putBoolean(KEY_PROFILE_COMPLETE, true)
@@ -167,7 +191,6 @@ class UserPrefs(context: Context) {
             .putStringSet(KEY_SYMPTOMS, value.symptoms.mapTo(mutableSetOf()) { it.name })
             .putStringSet(KEY_CLINICAL_CONTEXTS, value.clinicalContexts.mapTo(mutableSetOf()) { it.name })
             .putBoolean(KEY_URGENT_SYMPTOMS, value.urgentSymptoms)
-            .putString(KEY_EXERCISE_TIME, value.exerciseTime.name)
             .apply()
         return true
     }
@@ -186,8 +209,7 @@ class UserPrefs(context: Context) {
             correction = enumValueOrDefault(KEY_CORRECTION, VisionCorrection.NONE),
             symptoms = enumSet(KEY_SYMPTOMS),
             clinicalContexts = enumSet(KEY_CLINICAL_CONTEXTS),
-            urgentSymptoms = prefs.getBoolean(KEY_URGENT_SYMPTOMS, false),
-            exerciseTime = enumValueOrDefault(KEY_EXERCISE_TIME, ExerciseTimeBand.FIVE_TO_TEN)
+            urgentSymptoms = prefs.getBoolean(KEY_URGENT_SYMPTOMS, false)
         )
     }
 
@@ -204,6 +226,7 @@ class UserPrefs(context: Context) {
         const val KEY_THEME = "theme_mode"
         const val KEY_VOICE = "voice_enabled"
         const val KEY_HAPTICS = "haptics_enabled"
+        const val KEY_TRUE_BLACK = "true_black_enabled"
         const val KEY_BREAK_REMINDER_ENABLED = "break_reminder_enabled"
         const val KEY_BREAK_REMINDER_SMART = "break_reminder_smart_enabled"
         const val KEY_BREAK_REMINDER_INTERVAL = "break_reminder_interval_minutes"
@@ -218,6 +241,5 @@ class UserPrefs(context: Context) {
         const val KEY_SYMPTOMS = "wellness_symptoms"
         const val KEY_CLINICAL_CONTEXTS = "clinical_contexts"
         const val KEY_URGENT_SYMPTOMS = "urgent_eye_symptoms"
-        const val KEY_EXERCISE_TIME = "exercise_time"
     }
 }

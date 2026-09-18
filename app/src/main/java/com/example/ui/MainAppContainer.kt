@@ -42,11 +42,6 @@ import com.example.ui.screens.ChallengeScreen
 import com.example.ui.screens.TodayScreen
 import com.example.ui.screens.TrainScreen
 import com.example.ui.theme.AppTheme
-import com.example.ui.theme.BiologicalTeal
-import com.example.ui.theme.CharcoalSurface
-import com.example.ui.theme.MutedBorder
-import com.example.ui.theme.ObsidianBg
-import com.example.ui.theme.TextMediumEmphasis
 
 enum class AppPillarTab { TODAY, TRAIN, CHALLENGE, PROGRESS, PROFILE }
 
@@ -57,6 +52,7 @@ fun MainAppContainer(
     themeMode: ThemeMode,
     voiceEnabled: Boolean,
     hapticsEnabled: Boolean,
+    trueBlackEnabled: Boolean,
     targetColor: TargetColor,
     targetSpeed: Float,
     breakReminderSettings: BreakReminderSettings,
@@ -64,6 +60,7 @@ fun MainAppContainer(
     onThemeChange: (ThemeMode) -> Unit,
     onVoiceChange: (Boolean) -> Unit,
     onHapticsChange: (Boolean) -> Unit,
+    onTrueBlackChange: (Boolean) -> Unit,
     onTargetColorChange: (TargetColor) -> Unit,
     onTargetSpeedChange: (Float) -> Unit,
     onBreakReminderSettingsChange: (BreakReminderSettings) -> Unit,
@@ -109,9 +106,9 @@ fun MainAppContainer(
                             label = { Text(label, maxLines = 1) },
                             alwaysShowLabel = false,
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = AppTheme.colors.teal,
-                                selectedTextColor = AppTheme.colors.teal,
-                                indicatorColor = AppTheme.colors.teal.copy(alpha = 0.14f),
+                                selectedIconColor = AppTheme.colors.amber,
+                                selectedTextColor = AppTheme.colors.amber,
+                                indicatorColor = AppTheme.colors.amber.copy(alpha = 0.14f),
                                 unselectedIconColor = AppTheme.colors.textMedium,
                                 unselectedTextColor = AppTheme.colors.textMedium
                             ),
@@ -142,6 +139,7 @@ fun MainAppContainer(
                     themeMode = themeMode,
                     voiceEnabled = voiceEnabled,
                     hapticsEnabled = hapticsEnabled,
+                    trueBlackEnabled = trueBlackEnabled,
                     targetColor = targetColor,
                     targetSpeed = targetSpeed,
                     breakReminderSettings = breakReminderSettings,
@@ -149,6 +147,7 @@ fun MainAppContainer(
                     onThemeChange = onThemeChange,
                     onVoiceChange = onVoiceChange,
                     onHapticsChange = onHapticsChange,
+                    onTrueBlackChange = onTrueBlackChange,
                     onTargetColorChange = onTargetColorChange,
                     onTargetSpeedChange = onTargetSpeedChange,
                     onBreakReminderSettingsChange = onBreakReminderSettingsChange,

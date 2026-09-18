@@ -14,14 +14,6 @@ enum class ScreenTimeBand(val label: String) {
     val high: Boolean get() = this == FOUR_TO_EIGHT || this == OVER_EIGHT
 }
 
-/** Available daily time is a ceiling, not a target that should be filled. */
-enum class ExerciseTimeBand(val label: String, val maxGuidedDrills: Int) {
-    FIVE_TO_TEN("5-10 minutes", 3),
-    TEN_TO_FIFTEEN("10-15 minutes", 4),
-    FIFTEEN_TO_TWENTY("15-20 minutes", 5),
-    MORE_THAN_TWENTY("More than 20 minutes", 6)
-}
-
 enum class VisionCorrection(val label: String) {
     NONE("None"),
     GLASSES("Glasses"),
@@ -59,8 +51,7 @@ data class WellnessProfile(
      * Sudden vision change/loss, new flashes or curtain, severe pain, a painful red eye,
      * or sudden double vision. A yes answer pauses all automatic drills.
      */
-    val urgentSymptoms: Boolean,
-    val exerciseTime: ExerciseTimeBand = ExerciseTimeBand.FIVE_TO_TEN
+    val urgentSymptoms: Boolean
 )
 
 data class DailyRecommendation(
@@ -72,7 +63,7 @@ data class DailyRecommendation(
     val protocol: Protocol
         get() = drill.toProtocol().copy(
             description = reason,
-            tag = if (isCore) "Core for you" else "Rotates daily"
+            tag = if (isCore) "Core for you" else "Added for you"
         )
 }
 
@@ -104,15 +95,25 @@ fun localDayKey(
  * - age gates child outdoor guidance and excludes self-directed clinical therapy;
  * - condition-specific/neuro/amblyopia drills are never automatically prescribed.
  *
- * Core items are allowed to repeat when their evidence-based regimen calls for it. Only
- * optional comfort work and one non-core daily habit rotate, so variety never displaces
- * the intervention selected for the person's actual complaint.
+ * Core items are allowed to repeat when their evidence-based regimen calls for it. The
+ * plan is a pure function of the profile: the same answers give the same set every day.
+ * Nothing is chosen by date, so today's set never differs from tomorrow's for a reason
+ * the person cannot see in their own answers. When more than one supporting item could
+ * apply, the most clinically specific one wins rather than showing every option at once
+ * or alternating between them.
+ *
+ * The guided set is sized to a single evidence-based combination rather than to how much
+ * time a person says they have: complete blink practice (90s, the trial-optimised dose)
+ * plus the 20-20-20 break (20s, one break is the whole dose) plus one supporting comfort
+ * item (palming, 2 minutes) lands at about 3:50 for the typical screen-use profile -- a
+ * daily set worth actually finishing, not a list stretched or trimmed to a stated budget.
+ * A diagnosed lid condition swaps in the longer warm-compress routine instead, because
+ * that need is genuinely a longer one, not because the day changed.
  */
 object DailyPlanRepository {
 
-    fun forDay(profile: WellnessProfile, dayKey: Int = localDayKey()): DailyPlan {
+    fun forDay(profile: WellnessProfile): DailyPlan {
         val basedOn = buildList {
-            add(profile.exerciseTime.label.lowercase() + " available")
             add(profile.screenTime.label.lowercase() + " of screen time")
             if (profile.symptoms.isEmpty()) add("no regular symptoms reported")
             else add(profile.symptoms.joinToString { it.label.lowercase() })
@@ -182,29 +183,25 @@ object DailyPlanRepository {
             isCore = true
         )
 
-        val optionalIds = buildList {
-            if (WellnessSymptom.TENSION_HEADACHE in profile.symptoms) {
-                add("palming")
-                add("eye_range_of_motion")
-            } else if (screenNeed) {
-                // Rotate one low-load comfort break so the set changes without
-                // increasing dose or substituting a condition-specific exercise.
-                add("palming")
-                add("eye_range_of_motion")
-            }
-            if (ClinicalContext.DRY_EYE_OR_LID_DISEASE in profile.clinicalContexts) {
-                add("warm_compress")
-            }
-        }
-        pick(optionalIds, dayKey)?.let { id ->
-            addGuided(
+        // At most one supporting comfort item, so the set stays a single evidence-based
+        // combination (about four minutes) rather than every option stacked at once.
+        when {
+            ClinicalContext.DRY_EYE_OR_LID_DISEASE in profile.clinicalContexts -> addGuided(
                 guided,
-                id,
-                if (id == "warm_compress") {
-                    "Rotating lid-care support because you reported diagnosed dry-eye or lid disease."
-                } else {
-                    "Today's optional comfort variation; evidence is for short-term comfort, not stronger eyesight."
-                },
+                "warm_compress",
+                "Included because you reported diagnosed dry-eye or lid disease.",
+                isCore = false
+            )
+            WellnessSymptom.TENSION_HEADACHE in profile.symptoms -> addGuided(
+                guided,
+                "palming",
+                "Included for reported tension or headache around the eyes.",
+                isCore = false
+            )
+            screenNeed -> addGuided(
+                guided,
+                "palming",
+                "Included as a comfort break for sustained screen use; short-term comfort, not stronger eyesight.",
                 isCore = false
             )
         }
@@ -223,22 +220,24 @@ object DailyPlanRepository {
             isCore = true
         )
 
-        val rotatingHabitIds = buildList {
-            if (screenNeed) add("screen_setup")
-            if (dryNeed) add("blink_awareness")
-            if (profile.correction.usesGlasses || WellnessSymptom.FOCUS_BLUR in profile.symptoms) {
-                add("working_distance_correction")
-            }
-        }
-        pickNonCoreHabit(rotatingHabitIds, dayKey + 1)?.let { id ->
-            addHabit(
+        // Same one-item cap as above, by clinical priority rather than date.
+        when {
+            dryNeed -> addHabit(
                 coreHabits,
-                id,
-                when (id) {
-                    "screen_setup" -> "Today's rotating focus: reduce glare, leaning and unnecessarily close viewing."
-                    "blink_awareness" -> "Today's rotating focus: carry complete blinks into real screen work."
-                    else -> "Today's rotating focus: make sure correction matches the distance you actually use."
-                },
+                "blink_awareness",
+                "Carries complete blinks into real screen work; included for reported dryness.",
+                isCore = false
+            )
+            profile.correction.usesGlasses || WellnessSymptom.FOCUS_BLUR in profile.symptoms -> addHabit(
+                coreHabits,
+                "working_distance_correction",
+                "Makes sure your correction matches the distance you actually use.",
+                isCore = false
+            )
+            screenNeed -> addHabit(
+                coreHabits,
+                "screen_setup",
+                "Reduces glare, leaning and unnecessarily close viewing.",
                 isCore = false
             )
         }
@@ -255,8 +254,7 @@ object DailyPlanRepository {
         }
 
         return DailyPlan(
-            // Never stretch a studied dose or add an unrelated drill merely to fill time.
-            guided = guided.take(profile.exerciseTime.maxGuidedDrills),
+            guided = guided,
             habits = coreHabits,
             basedOn = basedOn,
             safetyMessage = safety
@@ -268,21 +266,6 @@ object DailyPlanRepository {
 
     private val VisionCorrection.usesGlasses: Boolean
         get() = this == VisionCorrection.GLASSES || this == VisionCorrection.GLASSES_AND_CONTACTS
-
-    private fun pick(ids: List<String>, dayKey: Int): String? =
-        ids.takeIf { it.isNotEmpty() }?.let { it[Math.floorMod(dayKey, it.size)] }
-
-    /**
-     * A one-item pool is not honestly "rotating", so it appears only every third day.
-     * Two items alternate, then take a rest day. Three or more use each option before
-     * any can recur.
-     */
-    private fun pickNonCoreHabit(ids: List<String>, dayKey: Int): String? {
-        if (ids.isEmpty()) return null
-        val cycleLength = maxOf(3, ids.size)
-        val slot = Math.floorMod(dayKey, cycleLength)
-        return ids.getOrNull(slot)
-    }
 
     private fun addGuided(
         destination: MutableList<DailyRecommendation>,

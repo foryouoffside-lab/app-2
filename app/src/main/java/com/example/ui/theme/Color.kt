@@ -13,6 +13,13 @@ val CharcoalSurface = Color(0xFF1D1B1A)
 val ZincSurfaceElevated = Color(0xFF282524)
 val MutedBorder = Color(0xFF35312F)
 
+// True black option for the Eye Comfort setting: same ladder as above but neutral
+// (R=G=B), for anyone who reads the warm tint above as an off yellow rather than a comfort choice.
+val TrueBlackBg = Color(0xFF000000)
+val TrueBlackSurface = Color(0xFF161616)
+val TrueBlackSurfaceElevated = Color(0xFF232323)
+val TrueBlackBorder = Color(0xFF343434)
+
 // Calming Accents & Glows
 val AmberPrimary = Color(0xFFF59E0B)
 val AmberGlow = Color(0xFFFBBF24)

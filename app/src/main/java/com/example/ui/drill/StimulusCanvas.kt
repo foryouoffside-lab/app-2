@@ -58,7 +58,10 @@ fun StimulusCanvas(
 ) {
     val palette = StimulusPalette(
         accent = style.color,
-        support = AppTheme.colors.teal,
+        // Neutral rather than a second accent color: this marks the OTHER points on a
+        // ring/path so the one the user should actually be tracking (accent) stands out
+        // on its own, whatever color they picked for it in Settings.
+        support = AppTheme.colors.textMedium,
         text = AppTheme.colors.textHigh,
         bg = AppTheme.colors.bg
     )
@@ -369,14 +372,31 @@ fun DrawScope.drawStimulus(
                     )
                 }
             } else {
-                val swept = (t - .6f) / .4f
-                val from = w * .26f
-                val at = Offset(from + w * .52f * swept, center.y - short * .06f)
-                drawLine(
-                    accent.copy(alpha = .30f), Offset(from, at.y), at,
-                    (short * .05f).coerceAtLeast(3f), StrokeCap.Round
-                )
-                drawCircle(accent, short * .045f, at)
+                // Two vertical sweeps toward the lash line, matching the cue and the
+                // howTo text exactly: upper lid down, then lower lid up. Never sideways --
+                // a single horizontal sweep here previously contradicted both.
+                val half = (t - .6f) / .4f
+                val x = w * .5f
+                val lash = center.y + short * .02f
+                if (half < .5f) {
+                    val progress = half / .5f
+                    val top = center.y - short * .16f
+                    val at = Offset(x, top + (lash - top) * progress)
+                    drawLine(
+                        accent.copy(alpha = .30f), Offset(x, top), at,
+                        (short * .05f).coerceAtLeast(3f), StrokeCap.Round
+                    )
+                    drawCircle(accent, short * .045f, at)
+                } else {
+                    val progress = (half - .5f) / .5f
+                    val bottom = center.y + short * .20f
+                    val at = Offset(x, bottom - (bottom - lash) * progress)
+                    drawLine(
+                        accent.copy(alpha = .30f), Offset(x, bottom), at,
+                        (short * .05f).coerceAtLeast(3f), StrokeCap.Round
+                    )
+                    drawCircle(accent, short * .045f, at)
+                }
             }
         }
 

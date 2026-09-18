@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.Build
+import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -14,8 +15,12 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.sin
@@ -57,6 +62,16 @@ class SensoryFeedbackManager(private val context: Context) {
     // speaking after it -- see [speakSequence].
     private val speechEpoch = AtomicLong(0)
 
+    // Only for [speak] to fall back onto when the engine is still warming up, so a cue
+    // fired at cold start queues behind readiness instead of being silently dropped.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    // Some OEM TTS engines start a fresh utterance at whatever the stream volume happens
+    // to be, including silence, until something else (a tap, a volume key) nudges the
+    // stream awake. Pinning both the audio attributes and an explicit full-volume param
+    // is the standard fix: it stops the engine from depending on ambient stream state.
+    private val speechParams = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f) }
+
     private fun settle(utteranceId: String?) {
         utteranceId?.let { awaiting.remove(it)?.complete(Unit) }
     }
@@ -69,6 +84,12 @@ class SensoryFeedbackManager(private val context: Context) {
                 tts?.language = Locale.getDefault().takeIf {
                     tts?.isLanguageAvailable(it) == TextToSpeech.LANG_AVAILABLE
                 } ?: Locale.US
+                tts?.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
                 // Every terminal state has to settle the waiter, or a drill that hits a
                 // TTS error would sit on the tutorial forever.
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -117,7 +138,7 @@ class SensoryFeedbackManager(private val context: Context) {
         val done = CompletableDeferred<Unit>()
         awaiting[id] = done
         try {
-            tts?.speak(text, TextToSpeech.QUEUE_ADD, null, id)
+            tts?.speak(text, TextToSpeech.QUEUE_ADD, speechParams, id)
             withTimeoutOrNull(timeoutMs) { done.await() }
         } catch (_: Exception) {
         } finally {
@@ -153,14 +174,27 @@ class SensoryFeedbackManager(private val context: Context) {
     /**
      * Speaks a coaching cue. [interrupt] mirrors a spoken countdown cutting off a
      * longer instruction so the number still lands on its own second.
+     *
+     * If the engine is still warming up (a cold start, or right after [initVoice]) this
+     * used to just drop the cue on the floor -- the caller had no way to know, and the
+     * very first line of a drill would go out in silence. It now waits a short, bounded
+     * moment for readiness instead, off the caller's own coroutine so nothing here blocks.
      */
     fun speak(text: String, interrupt: Boolean = false) {
-        if (!voiceEnabled || !ttsReady || text.isBlank()) return
+        if (!voiceEnabled || text.isBlank()) return
+        if (ttsReady) {
+            speakNow(text, interrupt)
+        } else {
+            scope.launch { if (awaitVoiceReady()) speakNow(text, interrupt) }
+        }
+    }
+
+    private fun speakNow(text: String, interrupt: Boolean) {
         try {
             tts?.speak(
                 text,
                 if (interrupt) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
-                null,
+                speechParams,
                 text.hashCode().toString()
             )
         } catch (_: Exception) {}
@@ -177,6 +211,7 @@ class SensoryFeedbackManager(private val context: Context) {
     fun release() {
         try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
         awaiting.keys.toList().forEach { settle(it) }
+        scope.cancel()
         tts = null
         ttsReady = false
     }

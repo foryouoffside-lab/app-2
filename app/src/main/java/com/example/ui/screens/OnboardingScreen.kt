@@ -28,8 +28,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,18 +45,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.ClinicalContext
-import com.example.model.ExerciseTimeBand
 import com.example.model.ScreenTimeBand
 import com.example.model.VisionCorrection
 import com.example.model.WellnessProfile
 import com.example.model.WellnessSymptom
 import com.example.ui.theme.AppTheme
-import com.example.util.SUPPORTED_AGES
+import com.example.util.AgeRange
+import com.example.util.ageRangeFor
 import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
 
 /** Questions are asked one per screen; the step after the last one is the review. */
-const val ONBOARDING_QUESTION_COUNT = 7
+const val ONBOARDING_QUESTION_COUNT = 6
 const val ONBOARDING_REVIEW_STEP = ONBOARDING_QUESTION_COUNT
 
 /** Lets the radio fill paint before the card slides away. */
@@ -78,7 +75,6 @@ fun OnboardingScreen(
     onCompleted: (WellnessProfile) -> Unit
 ) {
     var age by remember { mutableIntStateOf(initialProfile?.age ?: initialAge) }
-    var exerciseTime by remember { mutableStateOf(initialProfile?.exerciseTime ?: ExerciseTimeBand.FIVE_TO_TEN) }
     var screenTime by remember { mutableStateOf(initialProfile?.screenTime ?: ScreenTimeBand.TWO_TO_FOUR) }
     var correction by remember { mutableStateOf(initialProfile?.correction ?: VisionCorrection.NONE) }
     var symptoms by remember { mutableStateOf(initialProfile?.symptoms.orEmpty()) }
@@ -137,43 +133,18 @@ fun OnboardingScreen(
                     0 -> QuestionCard(
                         number = 1,
                         title = "What is your age?",
-                        detail = "Age changes near-focus ability and child prevention guidance. It is not an 'eye age'."
+                        detail = "Age changes near-focus ability. It is not an 'eye age'."
                     ) {
-                        Text(
-                            text = "$age",
-                            color = AppTheme.colors.amber,
-                            fontSize = 52.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().testTag("onboarding_age")
-                        )
-                        Slider(
-                            value = age.toFloat(),
-                            onValueChange = { age = it.roundToInt() },
-                            valueRange = SUPPORTED_AGES.first.toFloat()..SUPPORTED_AGES.last.toFloat(),
-                            colors = SliderDefaults.colors(
-                                thumbColor = AppTheme.colors.amber,
-                                activeTrackColor = AppTheme.colors.amber,
-                                inactiveTrackColor = AppTheme.colors.surfaceElevated
-                            )
-                        )
-                    }
-
-                    1 -> QuestionCard(
-                        number = 2,
-                        title = "How much time do you have to exercise?",
-                        detail = "This sets a daily limit. We will not add unnecessary drills just to fill it."
-                    ) {
-                        ExerciseTimeBand.entries.forEach { option ->
-                            SingleChoiceRow(option.label, option == exerciseTime) {
-                                exerciseTime = option
+                        AgeRange.entries.forEach { range ->
+                            SingleChoiceRow(range.label, range == ageRangeFor(age)) {
+                                age = range.representativeAge
                                 advancing = true
                             }
                         }
                     }
 
-                    2 -> QuestionCard(
-                        number = 3,
+                    1 -> QuestionCard(
+                        number = 2,
                         title = "How much screen time on most days?",
                         detail = "Screen exposure changes break and blink priority, not eye strength."
                     ) {
@@ -185,8 +156,8 @@ fun OnboardingScreen(
                         }
                     }
 
-                    3 -> QuestionCard(
-                        number = 4,
+                    2 -> QuestionCard(
+                        number = 3,
                         title = "What vision correction do you use?",
                         detail = "Glasses do not require a different exercise. They can signal that working-distance correction should be checked."
                     ) {
@@ -198,8 +169,8 @@ fun OnboardingScreen(
                         }
                     }
 
-                    4 -> QuestionCard(
-                        number = 5,
+                    3 -> QuestionCard(
+                        number = 4,
                         title = "What regularly bothers you?",
                         detail = "Choose all that apply, then continue. Leave everything clear if you have no regular symptoms."
                     ) {
@@ -210,8 +181,8 @@ fun OnboardingScreen(
                         }
                     }
 
-                    5 -> QuestionCard(
-                        number = 6,
+                    4 -> QuestionCard(
+                        number = 5,
                         title = "Has a clinician diagnosed or treated any of these?",
                         detail = "Choose only diagnosed conditions. These answers add safeguards; they do not create a treatment prescription."
                     ) {
@@ -222,8 +193,8 @@ fun OnboardingScreen(
                         }
                     }
 
-                    6 -> QuestionCard(
-                        number = 7,
+                    5 -> QuestionCard(
+                        number = 6,
                         title = "Do you have an urgent warning sign now?",
                         detail = "Sudden vision change or loss, new flashes or a curtain, severe eye pain, a painful red eye, or sudden double vision."
                     ) {
@@ -239,7 +210,6 @@ fun OnboardingScreen(
 
                     else -> ReviewCard(
                         age = age,
-                        exerciseTime = exerciseTime,
                         screenTime = screenTime,
                         correction = correction,
                         symptoms = symptoms,
@@ -274,8 +244,7 @@ fun OnboardingScreen(
                                 correction = correction,
                                 symptoms = symptoms,
                                 clinicalContexts = clinicalContexts,
-                                urgentSymptoms = urgentSymptoms,
-                                exerciseTime = exerciseTime
+                                urgentSymptoms = urgentSymptoms
                             )
                         )
                     }
@@ -305,7 +274,6 @@ fun OnboardingScreen(
 @Composable
 private fun ReviewCard(
     age: Int,
-    exerciseTime: ExerciseTimeBand,
     screenTime: ScreenTimeBand,
     correction: VisionCorrection,
     symptoms: Set<WellnessSymptom>,
@@ -314,7 +282,6 @@ private fun ReviewCard(
 ) {
     val answers = listOf(
         "Age" to "$age",
-        "Daily exercise time" to exerciseTime.label,
         "Screen time" to screenTime.label,
         "Correction" to correction.label,
         "Symptoms" to symptoms.joinToString { it.label }.ifEmpty { "None" },
@@ -330,7 +297,7 @@ private fun ReviewCard(
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "YOUR ANSWERS",
-                    color = AppTheme.colors.teal,
+                    color = AppTheme.colors.amber,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp
@@ -374,7 +341,7 @@ private fun QuestionCard(
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = "QUESTION $number OF $ONBOARDING_QUESTION_COUNT",
-                color = AppTheme.colors.teal,
+                color = AppTheme.colors.amber,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.2.sp

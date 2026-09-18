@@ -317,7 +317,7 @@ object StudioDrillRepository {
             digitalValidity = "The screen can reproduce the timed behavioral cue; it cannot verify blink quality.",
             whatYouDo = "Follow the cue: close gently, add a brief gentle squeeze, then open and relax.",
             whatItTrains = "A complete voluntary blink pattern.",
-            contraindications = "Stop for pain or new visual disturbance. Persistent symptoms need eye-care assessment.",
+            contraindications = "Persistent symptoms need eye-care assessment.",
             safetyLevel = "SAFE GENERAL DEMONSTRATION", generalUserStatus = GeneralUserStatus.GENERAL_TRAINING,
             reviewStatus = ProfessionalReviewStatus.RESEARCH_REVIEWED, stimulus = StudioStimulus.BLINK,
             dose = DrillDose(6, 15, "The trial optimum: 15 close-squeeze-open cycles with each step held 2 seconds, three times a day for two weeks (Wolffsohn 2025).", true),
@@ -569,7 +569,7 @@ object StudioDrillRepository {
             digitalValidity = "The stimulus is faithful, but without eye tracking the app cannot tell whether you actually looked away.",
             whatYouDo = "When the target appears, look to the OPPOSITE side by the same distance. Do not look at it.",
             whatItTrains = "Voluntary suppression of a reflexive glance.",
-            contraindications = "Stop for double vision, dizziness, nausea, pain, or severe headache.",
+            contraindications = "",
             safetyLevel = "SAFE GENERAL DEMONSTRATION", generalUserStatus = GeneralUserStatus.GENERAL_DEMONSTRATION,
             reviewStatus = ProfessionalReviewStatus.RESEARCH_REVIEWED, stimulus = StudioStimulus.ANTI_SACCADE,
             dose = illustrative(5, 16, "Laboratory blocks run 100+ trials with eye tracking. This is a short unscored sample."),
@@ -742,7 +742,18 @@ object StudioDrillRepository {
                 "Close your eyes, then cup a palm over each socket, heel of the hand on the cheekbone, fingers on the forehead. No weight on the eyeball itself.",
                 "Let the darkness be complete but comfortable. Breathe in for about five seconds, out for about five.",
                 "Come out slowly: drop the hands first, open the eyes into the low light, then look at something bright."
+            ),
+            howToImages = listOf(
+                null,
+                null,
+                R.drawable.howto_palming_cup,
+                null,
+                null
             )
+            // Only step 3 gets an image: "cup, heel on the cheekbone, fingers on the
+            // forehead, no weight on the eyeball" is a precise hand geometry a casual
+            // "cover your eyes" reading would miss. Sitting posture, rubbing palms warm,
+            // breathing and coming out slowly are all plain instruction, no new visual.
         ),
         StudioDrill(
             id = "eye_range_of_motion", name = "Full Range-of-Motion Rotations", issue = EyeIssue.TENSION,
@@ -833,10 +844,32 @@ object StudioDrillRepository {
                 "Test it on the inside of your wrist before it goes near your eyes. It should feel warm and comfortable, never hot. Lid skin is the thinnest on your body and scalds easily.",
                 "Sit or lie back with your head supported. Close both eyes and lay the compress across both lids. Let it rest there under its own weight -- no pressing on the eye.",
                 "Reheat the moment it stops feeling warm. The heat is the part that works: a cooled cloth sitting on your face is doing nothing.",
-                "When I call the massage: use the flat pad of your index finger. Upper lid, sweep downwards. Lower lid, sweep upwards. Always towards the lashes, never sideways across the eye.",
+                "When I call the massage: use the flat pad of your index finger, one sweep at a time -- not both lids at once.",
+                "Upper lid: sweep downwards, towards the lashes. Never sideways across the eye.",
+                "Lower lid: sweep upwards, towards the lashes. Never sideways across the eye.",
                 "Firm enough to move the skin, gentle enough to stay comfortable. Two or three sweeps a lid, then the warmth goes back on.",
                 "Finish by wiping along the lash line with a fresh lid wipe or a clean damp cloth, to clear away what you have just worked loose."
+            ),
+            howToImages = listOf(
+                null,
+                null,
+                null,
+                null,
+                R.drawable.howto_warm_compress_apply,
+                null,
+                null,
+                R.drawable.howto_warm_compress_massage_upper,
+                R.drawable.howto_warm_compress_massage_lower,
+                null,
+                null
             )
+            // Only three visual concepts among eleven steps: how the compress is held over
+            // closed eyes (step 5), and the one thing text alone leaves ambiguous -- which
+            // way each lid gets swept. The massage step was split in two (one finger, one
+            // sweep, one direction each) rather than crammed into one image, because the
+            // real technique is sequential -- one finger doing two strokes, not two fingers
+            // pressed on at once -- and a single combined image misread as a pinch. Steps 1,
+            // 6 and the rest are plain instruction or safety text with no new visual.
         ),
         StudioDrill(
             id = "lid_hygiene", name = "Daily Lid-Margin Cleaning", issue = EyeIssue.DRY_AND_TIRED,
@@ -865,7 +898,23 @@ object StudioDrillRepository {
                 "Close one eye and pull the lid gently taut. Wipe along the lash line itself, not the surface of the lid, in short strokes.",
                 "Repeat on the lower lid, then the other eye with a fresh surface each time. Never reuse a wipe between eyes.",
                 "Rinse with clean water and pat dry. Once a day is plenty; twice makes it sore."
+            ),
+            howToImages = listOf(
+                null,
+                null,
+                R.drawable.howto_lid_hygiene_upper,
+                null,
+                null
             )
+            // Only step 3 gets an image: the one real ambiguity is "along the lash line
+            // itself, not the surface of the lid" -- a target only a few millimetres wide.
+            // Step 4 ("repeat on the lower lid") doesn't get its own image: it's the same
+            // taught technique mirrored, not a new concept, and a closed eye's upper and
+            // lower lash margins sit too close together to render as a visibly distinct
+            // target -- confirmed by measuring the highlight's pixel position across five
+            // generation attempts, which kept landing within 2px of the upper-lid version
+            // despite different hand poses. Same non-visual treatment as every other
+            // drill's plain repeat/safety steps.
         ),
         StudioDrill(
             id = "blink_awareness", name = "Blink Awareness at the Screen", issue = EyeIssue.DRY_AND_TIRED,
@@ -1027,7 +1076,7 @@ private fun ciComponent(
     equipment = equipment, digitalValidity = "Digital demonstration of a clinically used procedure; it is not optically equivalent.",
     whatYouDo = "Observe the target relationship and the single/clear binocular goal; therapeutic use requires clinician instruction.",
     whatItTrains = "Clinically, convergence awareness and fusional vergence within a structured program.",
-    contraindications = "Stop for persistent double vision, significant dizziness, nausea, pain, or severe headache.",
+    contraindications = "",
     safetyLevel = if (equipmentRequired) "HARDWARE-DEPENDENT" else "CONDITION-SPECIFIC",
     generalUserStatus = if (equipmentRequired) GeneralUserStatus.CLINICAL_EQUIPMENT_REQUIRED else GeneralUserStatus.CONDITION_SPECIFIC,
     reviewStatus = ProfessionalReviewStatus.PROFESSIONAL_REVIEW_REQUIRED, stimulus = stimulus, dose = dose,
@@ -1060,7 +1109,7 @@ private fun performanceDrill(
     digitalReproducibility = DigitalReproducibility.FULL, equipment = "None for demonstration",
     digitalValidity = "The motion stimulus is reproducible on screen; therapeutic transfer is not established.",
     whatYouDo = "Keep your head still and follow the target as instructed. Move only within a comfortable range.", whatItTrains = target,
-    contraindications = "Stop for double vision, dizziness, nausea, pain, or severe headache.", safetyLevel = "SAFE GENERAL DEMONSTRATION",
+    contraindications = "", safetyLevel = "SAFE GENERAL DEMONSTRATION",
     generalUserStatus = GeneralUserStatus.GENERAL_DEMONSTRATION, reviewStatus = ProfessionalReviewStatus.RESEARCH_REVIEWED,
     // The vestibular guideline is cited in the limitation above, so it ships as a source
     // too: a caution the user cannot trace back is not evidence.

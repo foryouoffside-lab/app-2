@@ -77,21 +77,6 @@ import com.example.util.TargetColor
 import com.example.ui.drill.pausableFloat
 import com.example.ui.drill.repLabel
 import com.example.ui.theme.AppTheme
-import com.example.ui.theme.AmberGlow
-import com.example.ui.theme.AmberPrimary
-import com.example.ui.theme.BiologicalTeal
-import com.example.ui.theme.CharcoalSurface
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.IrisLavender
-import com.example.ui.theme.MintBreeze
-import com.example.ui.theme.MutedBorder
-import com.example.ui.theme.ObsidianBg
-import com.example.ui.theme.RoseCritical
-import com.example.ui.theme.TextHighEmphasis
-import com.example.ui.theme.TextMediumEmphasis
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.WarmApricot
-import com.example.ui.theme.ZincSurfaceElevated
 import kotlinx.coroutines.launch
 
 @Composable
@@ -574,7 +559,7 @@ private fun DrillListCard(drill: StudioDrill, phase: Float, style: TargetStyle, 
                 Icon(
                     imageVector = if (habit) Icons.Default.MenuBook else Icons.Default.PlayArrow,
                     contentDescription = if (habit) "How to do it" else "Start",
-                    tint = if (habit) AppTheme.colors.teal else AppTheme.colors.textHigh,
+                    tint = AppTheme.colors.textHigh,
                     modifier = Modifier.size(18.dp)
                 )
             }

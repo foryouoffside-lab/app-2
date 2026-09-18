@@ -44,8 +44,6 @@ data class VisionChallenge(
     val description: String,
     val section: ChallengeSection,
     val kind: ChallengeKind,
-    val measures: String,
-    val evidenceLabel: String,
     /** Scored presentations the runner shows: plates, trials, or one per eye. */
     val steps: Int,
     /** Seconds one step takes in practice, including reading its prompt. */
@@ -89,11 +87,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "central_grid",
             title = "Central vision grid",
-            description = "Check each eye for new waves, gaps or dark areas.",
+            description = "Look for waves or dark spots.",
             section = ChallengeSection.VISION_CHECK,
             kind = ChallengeKind.CENTRAL_GRID,
-            measures = "Self-reported central distortion",
-            evidenceLabel = "Amsler-style observation",
             steps = 2, secondsPerStep = 25, setupSeconds = 45,
             howTo = listOf(
                 "Use your usual reading glasses, at your normal reading distance.",
@@ -105,11 +101,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "near_clarity",
             title = "Near clarity check",
-            description = "Match the gap direction, one eye at a time.",
+            description = "Match the gap's direction, per eye.",
             section = ChallengeSection.VISION_CHECK,
             kind = ChallengeKind.NEAR_CLARITY,
-            measures = "Repeatable near-detail threshold",
-            evidenceLabel = "Screen-size dependent",
             // The staircase stops early once two of three are missed, so this is the
             // typical run rather than the 42-presentation ceiling.
             steps = 24, secondsPerStep = 3, setupSeconds = 75,
@@ -125,11 +119,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "reading_clarity",
             title = "Reading clarity",
-            description = "Find the smallest text that stays comfortable.",
+            description = "Find the smallest readable text.",
             section = ChallengeSection.VISION_CHECK,
             kind = ChallengeKind.READING_CLARITY,
-            measures = "Near-reading comfort on this device",
-            evidenceLabel = "40 cm self-check",
             steps = 5, secondsPerStep = 6, setupSeconds = 25,
             howTo = listOf(
                 "Use your normal reading glasses, or the reading zone of progressive lenses.",
@@ -140,11 +132,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "astigmatism_fan",
             title = "Astigmatism fan",
-            description = "Compare radial line sharpness with each eye.",
+            description = "Compare line sharpness, each eye.",
             section = ChallengeSection.VISION_CHECK,
             kind = ChallengeKind.ASTIGMATISM_FAN,
-            measures = "Self-reported directional blur",
-            evidenceLabel = "Qualitative observation",
             steps = 2, secondsPerStep = 15, setupSeconds = 40,
             howTo = listOf(
                 "Use your usual glasses, in bright, even light, at a comfortable distance.",
@@ -156,11 +146,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "ishihara_style_plates",
             title = "Ishihara-style colour plates",
-            description = "Identify numbers formed by coloured dots.",
+            description = "Identify the number in the dots.",
             section = ChallengeSection.VISION_CHECK,
             kind = ChallengeKind.ISHIHARA_STYLE_PLATES,
-            measures = "Pseudoisochromatic plate responses",
-            evidenceLabel = "Original, non-diagnostic plates",
             steps = 6, secondsPerStep = 10, setupSeconds = 45,
             howTo = listOf(
                 "Turn off night mode, colour filters and any extra-dim display setting.",
@@ -171,11 +159,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "red_green_balance",
             title = "Red–green balance",
-            description = "Compare identical marks on red and green.",
+            description = "Compare marks on red and green.",
             section = ChallengeSection.VISION_CHECK,
             kind = ChallengeKind.RED_GREEN_BALANCE,
-            measures = "Subjective red–green clarity balance",
-            evidenceLabel = "Observation, not refraction",
             steps = 1, secondsPerStep = 20, setupSeconds = 35,
             howTo = listOf(
                 "Use your usual near correction, in softly lit surroundings, and hold the phone 40 cm away.",
@@ -186,11 +172,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "cover_alignment",
             title = "Cover alignment observation",
-            description = "A helper watches each uncovered eye for movement.",
+            description = "A helper watches for eye movement.",
             section = ChallengeSection.VISION_CHECK,
             kind = ChallengeKind.COVER_ALIGNMENT,
-            measures = "Observed fixation movement",
-            evidenceLabel = "Helper-assisted check",
             steps = 2, secondsPerStep = 25, setupSeconds = 60,
             howTo = listOf(
                 "This check needs a helper to watch your eyes while you fixate on a target.",
@@ -202,11 +186,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "near_point_convergence",
             title = "Near convergence log",
-            description = "Record three ruler-assisted convergence break points.",
+            description = "Log three convergence break points.",
             section = ChallengeSection.VISION_CHECK,
             kind = ChallengeKind.NEAR_POINT_CONVERGENCE,
-            measures = "Near-point distance baseline",
-            evidenceLabel = "Helper and ruler required",
             steps = 3, secondsPerStep = 25, setupSeconds = 75,
             howTo = listOf(
                 "Use your normal near correction, and have a helper and a centimetre ruler ready.",
@@ -218,11 +200,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "contrast_spotting",
             title = "Contrast spotting",
-            description = "Find the faint circle as contrast steps down.",
+            description = "Find the circle as contrast fades.",
             section = ChallengeSection.PERFORMANCE_CHALLENGE,
             kind = ChallengeKind.CONTRAST_SPOTTING,
-            measures = "On-device contrast performance",
-            evidenceLabel = "Compare only on this device",
             steps = 10, secondsPerStep = 5, setupSeconds = 35,
             howTo = listOf(
                 "Set a comfortable, fixed screen brightness before you start.",
@@ -233,11 +213,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "peripheral_awareness",
             title = "Peripheral awareness",
-            description = "Hold the centre while a brief edge cue appears.",
+            description = "Hold centre; watch for edge cues.",
             section = ChallengeSection.PERFORMANCE_CHALLENGE,
             kind = ChallengeKind.PERIPHERAL_AWARENESS,
-            measures = "Fixation and cue awareness",
-            evidenceLabel = "Training challenge",
             steps = 8, secondsPerStep = 7, setupSeconds = 35,
             howTo = listOf(
                 "Use both eyes and hold the phone at reading distance.",
@@ -248,11 +226,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "visual_reaction",
             title = "Visual reaction",
-            description = "Tap each target as soon as it appears.",
+            description = "Tap each target as fast as you can.",
             section = ChallengeSection.PERFORMANCE_CHALLENGE,
             kind = ChallengeKind.VISUAL_REACTION,
-            measures = "Median tap response time",
-            evidenceLabel = "Performance, not eye health",
             steps = 10, secondsPerStep = 4, setupSeconds = 35,
             howTo = listOf(
                 "Rest the phone on a stable surface, or hold it steadily.",
@@ -263,11 +239,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "color_discrimination",
             title = "Colour discrimination",
-            description = "Find the tile with a slightly different hue.",
+            description = "Find the tile with a different hue.",
             section = ChallengeSection.PERFORMANCE_CHALLENGE,
             kind = ChallengeKind.COLOR_DISCRIMINATION,
-            measures = "On-device hue discrimination",
-            evidenceLabel = "Not a colour-blindness test",
             steps = 6, secondsPerStep = 5, setupSeconds = 35,
             howTo = listOf(
                 "Use a comfortable fixed brightness, without a colour filter or night mode.",
@@ -278,11 +252,9 @@ object VisionChallengeRepository {
         VisionChallenge(
             id = "amblyopia_play",
             title = "Lazy-eye target hunt",
-            description = "Find matching symbols in a playful visual search.",
+            description = "Find matching symbols in the scene.",
             section = ChallengeSection.PERFORMANCE_CHALLENGE,
             kind = ChallengeKind.AMBLYOPIA_PLAY,
-            measures = "Close-up visual search accuracy",
-            evidenceLabel = "Play activity, not treatment",
             steps = 12, secondsPerStep = 5, setupSeconds = 40,
             howTo = listOf(
                 "Wear your prescribed glasses and use both eyes, unless a professional has prescribed patching for this activity.",

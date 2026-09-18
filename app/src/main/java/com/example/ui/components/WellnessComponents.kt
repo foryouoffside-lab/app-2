@@ -43,18 +43,6 @@ import androidx.compose.ui.platform.testTag
 import com.example.ui.theme.AppTheme
 import com.example.util.TARGET_SPEED_RANGE
 import com.example.util.targetSpeedLabel
-import com.example.ui.theme.AmberGlow
-import com.example.ui.theme.AmberPrimary
-import com.example.ui.theme.BiologicalTeal
-import com.example.ui.theme.CharcoalSurface
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.IrisLavender
-import com.example.ui.theme.MutedBorder
-import com.example.ui.theme.ObsidianBg
-import com.example.ui.theme.TextHighEmphasis
-import com.example.ui.theme.TextMediumEmphasis
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.ZincSurfaceElevated
 
 @Composable
 fun HeroRoutineCard(
@@ -64,8 +52,8 @@ fun HeroRoutineCard(
 ) {
     Card(
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.teal.copy(alpha = 0.07f)),
-        border = BorderStroke(1.dp, AppTheme.colors.teal.copy(alpha = 0.35f)),
+        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surface),
+        border = BorderStroke(1.dp, AppTheme.colors.border),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
@@ -76,21 +64,13 @@ fun HeroRoutineCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(AppTheme.colors.teal.copy(alpha = 0.15f))
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        text = "NEXT UP",
-                        color = AppTheme.colors.teal,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                }
+                Text(
+                    text = "NEXT UP",
+                    color = AppTheme.colors.textMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.4.sp
+                )
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -116,17 +96,6 @@ fun HeroRoutineCard(
                 color = AppTheme.colors.textHigh,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = protocol.description,
-                color = AppTheme.colors.textMedium,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                maxLines = 2,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -249,17 +218,6 @@ fun RoutineCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(3.dp))
-
-                Text(
-                    text = protocol.description,
-                    color = AppTheme.colors.textMedium,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
-
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Row(
@@ -302,70 +260,6 @@ fun RoutineCard(
                     modifier = Modifier.size(19.dp)
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun StatMetricCard(
-    title: String,
-    value: String,
-    subtitle: String,
-    icon: ImageVector,
-    accentColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surface),
-        border = BorderStroke(1.dp, AppTheme.colors.border),
-        modifier = modifier
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(accentColor.copy(alpha = 0.15f))
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Text(
-                    text = subtitle,
-                    color = AppTheme.colors.textMuted,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = value,
-                color = AppTheme.colors.textHigh,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = title,
-                color = AppTheme.colors.textMedium,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Normal
-            )
         }
     }
 }

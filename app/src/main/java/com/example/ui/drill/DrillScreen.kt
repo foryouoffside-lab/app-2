@@ -343,8 +343,14 @@ fun DrillScreen(
 
     // Read aloud, because the whole point of the walkthrough is that your hands are busy
     // with a flannel or a pencil and your eyes are not on the phone.
+    //
+    // stopVoice() first, rather than leaving it to speak's own interrupt=true flush: Next
+    // and Back both land on this same effect, and a step tapped through quickly could
+    // otherwise have its speak() call race the still-finishing previous one on some OEM
+    // engines, landing two lines on top of each other instead of a clean cut to the new one.
     LaunchedEffect(stage, prepIndex) {
         if (stage != Stage.PREP) return@LaunchedEffect
+        coach.stopVoice()
         coach.awaitVoiceReady()
         prepSteps.getOrNull(prepIndex)?.let { coach.speak(it, interrupt = true) }
     }
@@ -455,7 +461,7 @@ fun DrillScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             if (stage == Stage.INTRO) {
                 IntroFooter(
@@ -627,7 +633,7 @@ fun DrillScreen(
                     }
                 } else {
                     box(Modifier.weight(1f))
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
                     panel()
                 }
             }
@@ -904,7 +910,7 @@ private fun PrepSteps(
     ) {
         Text(
             text = "HOW TO DO IT",
-            color = AppTheme.colors.teal,
+            color = AppTheme.colors.amber,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.5.sp
@@ -921,65 +927,74 @@ private fun PrepSteps(
                         .height(3.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(
-                            if (i <= index) AppTheme.colors.teal else AppTheme.colors.border
+                            if (i <= index) AppTheme.colors.amber else AppTheme.colors.border
                         )
                 )
             }
         }
 
-        // Scrollable on its own: the video is sized by its real aspect ratio now rather
-        // than however much weighted space happened to be left over, and a portrait clip
-        // at full width can run tall enough that the instruction text needs to be able to
-        // scroll into view below it instead of getting squeezed against the buttons.
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(20.dp))
+        // A step with no image is just a number and a line of text -- short enough that
+        // pinning it to the top (right under the progress dots) left it stranded in the
+        // upper third of the screen with empty space below. Centering it in the space
+        // between the dots and the buttons is what "the instruction" reads as here.
+        //
+        // The centering has to live on this outer Box, not on the scrollable Column
+        // itself: verticalScroll remeasures its content with an unbounded max height so
+        // it can scroll, and Arrangement.Center has nothing to center against once the
+        // height it's measuring in is infinite -- it silently degrades to top-aligned.
+        // The Box still gets the real, bounded weight(1f) height, so it can center a
+        // short step and still let a tall video's own scroll take over once it overflows.
+        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(20.dp))
 
-            if (video != null) {
-                LoopingStepVideo(
-                    resId = video,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // VideoView has no equivalent of ContentScale.Fit -- it stretches
-                        // to whatever box it's given, so the box has to be pinned to the
-                        // clip's own 4:5 shape itself rather than left to a weight share.
-                        .aspectRatio(4f / 5f)
-                        .clip(RoundedCornerShape(20.dp))
-                        .testTag("prep_step_video")
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-            } else if (image != null) {
-                Image(
-                    painter = painterResource(image),
-                    contentDescription = steps.getOrElse(index) { "" },
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .testTag("prep_step_image")
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-            } else {
+                if (video != null) {
+                    LoopingStepVideo(
+                        resId = video,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // VideoView has no equivalent of ContentScale.Fit -- it stretches
+                            // to whatever box it's given, so the box has to be pinned to the
+                            // clip's own 4:5 shape itself rather than left to a weight share.
+                            .aspectRatio(4f / 5f)
+                            .clip(RoundedCornerShape(20.dp))
+                            .testTag("prep_step_video")
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                } else if (image != null) {
+                    Image(
+                        painter = painterResource(image),
+                        contentDescription = steps.getOrElse(index) { "" },
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .testTag("prep_step_image")
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                } else {
+                    Text(
+                        text = "${index + 1}",
+                        color = AppTheme.colors.amber.copy(alpha = .30f),
+                        fontSize = 72.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
                 Text(
-                    text = "${index + 1}",
-                    color = AppTheme.colors.teal.copy(alpha = .30f),
-                    fontSize = 72.sp,
-                    fontWeight = FontWeight.Bold
+                    text = steps.getOrElse(index) { "" },
+                    color = AppTheme.colors.textHigh,
+                    fontSize = 19.sp,
+                    lineHeight = 29.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("prep_step_text")
                 )
-                Spacer(modifier = Modifier.height(10.dp))
             }
-            Text(
-                text = steps.getOrElse(index) { "" },
-                color = AppTheme.colors.textHigh,
-                fontSize = 19.sp,
-                lineHeight = 29.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.testTag("prep_step_text")
-            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

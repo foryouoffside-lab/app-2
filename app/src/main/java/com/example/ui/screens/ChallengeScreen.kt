@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +33,6 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -56,14 +56,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.model.ChallengeKind
 import com.example.model.ChallengeSection
 import com.example.model.VisionChallenge
@@ -115,7 +118,6 @@ private fun ChallengeLibrary(onSelect: (VisionChallenge) -> Unit) {
             Spacer(Modifier.height(4.dp))
             Text("Structured self-checks and measurable visual challenges.", color = colors.textMedium, fontSize = 13.sp, lineHeight = 18.sp)
         }
-        item { SafetyBanner() }
         item { SectionTitle("VISION CHECKS", "Run each eye separately. Repeat under the same conditions.") }
         items(checks, key = { it.id }) { ChallengeCard(it, onSelect) }
         item { SectionTitle("PERFORMANCE CHALLENGES", "Scores measure this task on this device—not eye health.") }
@@ -123,7 +125,7 @@ private fun ChallengeLibrary(onSelect: (VisionChallenge) -> Unit) {
         item {
             Surface(color = colors.surface, border = androidx.compose.foundation.BorderStroke(1.dp, colors.border), shape = RoundedCornerShape(18.dp)) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Default.Info, null, tint = colors.teal, modifier = Modifier.size(19.dp))
+                    Icon(Icons.Default.Info, null, tint = colors.amber, modifier = Modifier.size(19.dp))
                     Spacer(Modifier.width(10.dp))
                     Text("These checks cannot examine the retina, optic nerve, eye pressure or prescription. A normal result does not rule out eye disease.", color = colors.textMedium, fontSize = 12.sp, lineHeight = 17.sp)
                 }
@@ -133,26 +135,10 @@ private fun ChallengeLibrary(onSelect: (VisionChallenge) -> Unit) {
 }
 
 @Composable
-private fun SafetyBanner() {
-    val colors = AppTheme.colors
-    Surface(color = colors.rose.copy(alpha = 0.10f), border = androidx.compose.foundation.BorderStroke(1.dp, colors.rose.copy(alpha = 0.45f)), shape = RoundedCornerShape(18.dp)) {
-        Row(Modifier.padding(15.dp), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Default.WarningAmber, null, tint = colors.rose, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text("Know the urgent signs", color = colors.textHigh, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(3.dp))
-                Text("Sudden vision loss, severe eye pain, many new floaters or flashes, or a curtain/shadow in vision needs urgent medical care. Do not run a test first.", color = colors.textMedium, fontSize = 12.sp, lineHeight = 17.sp)
-            }
-        }
-    }
-}
-
-@Composable
 private fun SectionTitle(title: String, subtitle: String) {
     val colors = AppTheme.colors
     Column(Modifier.padding(top = 8.dp)) {
-        Text(title, color = colors.teal, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+        Text(title, color = colors.amber, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
         Spacer(Modifier.height(3.dp))
         Text(subtitle, color = colors.textMuted, fontSize = 12.sp, lineHeight = 16.sp)
     }
@@ -227,7 +213,7 @@ private fun TestHeader(title: String, onClose: () -> Unit, step: String? = null)
         }
         Spacer(Modifier.width(12.dp))
         Text(title, color = colors.textHigh, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        step?.let { Pill(it, colors.teal) }
+        step?.let { Pill(it, colors.amber) }
     }
 }
 
@@ -243,14 +229,7 @@ private fun IntroScreen(challenge: VisionChallenge, bullets: List<String>, warni
         Column(Modifier.fillMaxSize().background(colors.bg)) {
             TestHeader(challenge.title, onClose)
             Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 22.dp), verticalArrangement = Arrangement.Center) {
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Pill("About ${challenge.durationMinutes} min", colors.amber)
-                    Pill(challenge.evidenceLabel, colors.teal)
-                }
-                Spacer(Modifier.height(14.dp))
-                Text(challenge.measures, color = colors.textHigh, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                Text(challenge.description, color = colors.textMedium, fontSize = 14.sp, lineHeight = 20.sp)
+                Text(challenge.description, color = colors.textHigh, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(22.dp))
                 extra?.invoke()
             }
@@ -266,23 +245,14 @@ private fun IntroScreen(challenge: VisionChallenge, bullets: List<String>, warni
         item { TestHeader(challenge.title, onClose) }
         item {
             Column(Modifier.padding(horizontal = 22.dp)) {
-                // The two things the row no longer says. Here they are read by somebody
-                // deciding whether to start, which is the only moment they matter.
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Pill("About ${challenge.durationMinutes} min", colors.amber)
-                    Pill(challenge.evidenceLabel, colors.teal)
-                }
-                Spacer(Modifier.height(14.dp))
-                Text(challenge.measures, color = colors.textHigh, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                Text(challenge.description, color = colors.textMedium, fontSize = 14.sp, lineHeight = 20.sp)
+                Text(challenge.description, color = colors.textHigh, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(22.dp))
                 Text("SETUP", color = colors.textMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 Spacer(Modifier.height(10.dp))
                 bullets.forEachIndexed { index, text ->
                     Row(Modifier.padding(vertical = 7.dp), verticalAlignment = Alignment.Top) {
-                        Box(Modifier.size(26.dp).clip(CircleShape).background(colors.teal.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                            Text("${index + 1}", color = colors.teal, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Box(Modifier.size(26.dp).clip(CircleShape).background(colors.amber.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                            Text("${index + 1}", color = colors.amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.width(11.dp))
                         Text(text, color = colors.textMedium, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.weight(1f))
@@ -341,11 +311,11 @@ private fun TestWalkthrough(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 14.dp)) {
-            Text("HOW TO DO IT", color = colors.teal, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+            Text("HOW TO DO IT", color = colors.amber, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 steps.indices.forEach { i ->
-                    Box(Modifier.weight(1f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(if (i <= index) colors.teal else colors.border))
+                    Box(Modifier.weight(1f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(if (i <= index) colors.amber else colors.border))
                 }
             }
         }
@@ -354,7 +324,7 @@ private fun TestWalkthrough(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (visual != null) visual() else Text("${index + 1}", color = colors.teal.copy(alpha = .30f), fontSize = 60.sp, fontWeight = FontWeight.Bold)
+            if (visual != null) visual() else Text("${index + 1}", color = colors.amber.copy(alpha = .30f), fontSize = 60.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(20.dp))
             Text(
                 steps[index],
@@ -384,7 +354,7 @@ private fun PrimaryButton(label: String, onClick: () -> Unit, modifier: Modifier
 }
 
 @Composable
-private fun ResultScreen(title: String, headline: String, body: String, onClose: () -> Unit, accent: Color = AppTheme.colors.teal, details: (@Composable () -> Unit)? = null) {
+private fun ResultScreen(title: String, headline: String, body: String, onClose: () -> Unit, accent: Color = AppTheme.colors.textHigh, details: (@Composable () -> Unit)? = null) {
     val colors = AppTheme.colors
     Column(Modifier.fillMaxSize().background(colors.bg)) {
         TestHeader(title, onClose, "COMPLETE")
@@ -420,17 +390,17 @@ private fun CentralGridCheck(challenge: VisionChallenge, onClose: () -> Unit) {
             onBack = { if (howToIndex > 0) howToIndex-- else showingHowTo = false },
             onNext = { if (howToIndex < challenge.howTo.lastIndex) howToIndex++ else { showingHowTo = false; started = true } },
             visual = when (howToIndex) {
-                1 -> { { EyeCoverDiagram(coverLeft = true) } }
+                1 -> { { EyeCoverDiagram(coverLeft = true, size = 240.dp) } }
                 2 -> { { AmslerGrid() } }
-                3 -> { { EyeCoverDiagram(coverLeft = false) } }
+                3 -> { { EyeCoverDiagram(coverLeft = false, size = 240.dp) } }
                 else -> null
             }
         )
         return
     }
     if (!started) {
-        IntroScreen(challenge, emptyList(), "This phone-sized pattern is a qualitative Amsler-style observation, not a full-size clinical chart. A new change should be discussed promptly with an eye-care professional.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }) {
-            HowItWorksDemo("Cover one eye, watch the centre dot, then switch and do the other.") {
+        IntroScreen(challenge, emptyList(), "A qualitative check, not a clinical chart. Report any new change promptly.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }) {
+            HowItWorksDemo("Cover one eye, watch the dot, then switch.") {
                 EyeCoverDiagram(coverLeft = true)
             }
         }
@@ -438,7 +408,7 @@ private fun CentralGridCheck(challenge: VisionChallenge, onClose: () -> Unit) {
     }
     if (complete) {
         val changedEyes = answers.count { it.hasChange }
-        ResultScreen(challenge.title, if (changedEyes == 0) "No change reported" else "Change reported in $changedEyes eye${if (changedEyes == 1) "" else "s"}", if (changedEyes == 0) "This is a monitoring note, not an all-clear. Keep your regular eye exams and compare again under the same conditions." else "If this is new or worse, contact an eye-care professional promptly. The grid cannot identify the cause.", onClose, if (changedEyes == 0) AppTheme.colors.teal else AppTheme.colors.rose)
+        ResultScreen(challenge.title, if (changedEyes == 0) "No change reported" else "Change reported in $changedEyes eye${if (changedEyes == 1) "" else "s"}", if (changedEyes == 0) "This is a monitoring note, not an all-clear. Keep your regular eye exams and compare again under the same conditions." else "If this is new or worse, contact an eye-care professional promptly. The grid cannot identify the cause.", onClose, if (changedEyes == 0) AppTheme.colors.textHigh else AppTheme.colors.rose)
         return
     }
     val colors = AppTheme.colors
@@ -448,7 +418,7 @@ private fun CentralGridCheck(challenge: VisionChallenge, onClose: () -> Unit) {
             Column(Modifier.padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(if (eye == 0) "Cover your left eye" else "Cover your right eye", color = colors.textHigh, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text("Keep looking at the centre dot.", color = colors.textMedium, fontSize = 13.sp)
-                Spacer(Modifier.height(14.dp)); EyeCoverDiagram(coverLeft = eye == 0)
+                Spacer(Modifier.height(14.dp)); EyeCoverDiagram(coverLeft = eye == 0, size = 120.dp)
                 Spacer(Modifier.height(16.dp)); AmslerGrid(); Spacer(Modifier.height(18.dp))
                 Text("What do you notice?", color = colors.textHigh, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
@@ -495,31 +465,20 @@ private fun EyeCoverPreview() {
 }
 
 @Composable
-private fun EyeCoverDiagram(coverLeft: Boolean, modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-        EyeIcon(covered = coverLeft, label = "LEFT")
-        EyeIcon(covered = !coverLeft, label = "RIGHT")
-    }
-}
-
-@Composable
-private fun EyeIcon(covered: Boolean, label: String) {
+private fun EyeCoverDiagram(coverLeft: Boolean, modifier: Modifier = Modifier, size: Dp = 180.dp) {
     val colors = AppTheme.colors
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Canvas(Modifier.size(60.dp)) {
-            val r = size.minDimension * 0.44f
-            if (covered) {
-                drawCircle(colors.surfaceElevated, r, center)
-                drawLine(colors.textMuted, Offset(center.x - r * 0.62f, center.y), Offset(center.x + r * 0.62f, center.y), 4f, StrokeCap.Round)
-            } else {
-                drawCircle(Color.White, r, center)
-                drawCircle(colors.iris, r * 0.52f, center)
-                drawCircle(Color.Black, r * 0.20f, center)
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(label, color = colors.textMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-        Text(if (covered) "Cover" else "Keep open", color = if (covered) colors.rose else colors.teal, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Image(
+            painter = painterResource(if (coverLeft) R.drawable.howto_eye_cover_left else R.drawable.howto_eye_cover_right),
+            contentDescription = if (coverLeft) "Cover your left eye, keep your right eye open" else "Cover your right eye, keep your left eye open",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.size(size).clip(RoundedCornerShape(20.dp))
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (coverLeft) "Cover left · keep right open" else "Cover right · keep left open",
+            color = colors.textMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = .3.sp
+        )
     }
 }
 
@@ -575,18 +534,18 @@ private fun NearClarityCheck(challenge: VisionChallenge, age: Int, onClose: () -
                         Slider(value = scale, onValueChange = { scale = it }, valueRange = 0.75f..1.25f, modifier = Modifier.width(240.dp))
                     }
                 } }
-                2 -> { { EyeCoverDiagram(coverLeft = true) } }
+                2 -> { { EyeCoverDiagram(coverLeft = true, size = 240.dp) } }
                 3 -> { { LandoltC(60.dp, 0) } }
                 4 -> { { DirectionPad {} } }
-                5 -> { { EyeCoverDiagram(coverLeft = false) } }
+                5 -> { { EyeCoverDiagram(coverLeft = false, size = 240.dp) } }
                 else -> null
             }
         )
         return
     }
     if (!started) {
-        IntroScreen(challenge, emptyList(), if (age < 18) "This adult-oriented self-check is not validated for children. A child's vision should be screened by a trained professional." else "Device density and viewing distance affect the result. The output is an approximate repeatable threshold, not a prescription or diagnosis.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }) {
-            HowItWorksDemo("You'll cover one eye, read the gap in the ring, then switch and do the other.") {
+        IntroScreen(challenge, emptyList(), if (age < 18) "Not validated for children; they need professional screening." else "Screen and distance affect results; this is not a prescription.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }) {
+            HowItWorksDemo("Read the ring's gap, one eye at a time.") {
                 EyeCoverDiagram(coverLeft = true)
             }
         }
@@ -595,7 +554,7 @@ private fun NearClarityCheck(challenge: VisionChallenge, age: Int, onClose: () -
     if (complete) {
         val mismatch = acuityEyesDiffer(results[0], results[1])
         val noThreshold = results.all { it == null }
-        ResultScreen(challenge.title, if (noThreshold) "No threshold recorded" else if (mismatch) "The eyes differed today" else "Eye results were similar", nearClarityRecommendation(results[0], results[1]), onClose, if (mismatch || noThreshold) AppTheme.colors.amber else AppTheme.colors.teal) {
+        ResultScreen(challenge.title, if (noThreshold) "No threshold recorded" else if (mismatch) "The eyes differed today" else "Eye results were similar", nearClarityRecommendation(results[0], results[1]), onClose, if (mismatch || noThreshold) AppTheme.colors.amber else AppTheme.colors.textHigh) {
             Spacer(Modifier.height(22.dp)); ResultMetric("Right eye", nearClarityLabel(results[0])); ResultMetric("Left eye", nearClarityLabel(results[1]))
         }
         return
@@ -606,7 +565,7 @@ private fun NearClarityCheck(challenge: VisionChallenge, age: Int, onClose: () -
         Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (eye == 0) "Cover left eye" else "Cover right eye", color = colors.textHigh, fontWeight = FontWeight.Bold, fontSize = 17.sp)
             Text("40 cm · ${level + 1}/${levels.size}", color = colors.textMuted, fontSize = 12.sp)
-            Spacer(Modifier.height(10.dp)); EyeCoverDiagram(coverLeft = eye == 0)
+            Spacer(Modifier.height(10.dp)); EyeCoverDiagram(coverLeft = eye == 0, size = 120.dp)
             Spacer(Modifier.weight(0.7f)); LandoltC((mmToDp(optotypeMillimetresAt40Cm(levels[level])) * scale).coerceAtLeast(4.dp), direction); Spacer(Modifier.weight(0.7f))
             Text("Where is the gap?", color = colors.textMedium, fontSize = 13.sp); Spacer(Modifier.height(12.dp))
             DirectionPad { answer(it) }
@@ -668,9 +627,9 @@ private fun AstigmatismFanCheck(challenge: VisionChallenge, onClose: () -> Unit)
             onBack = { if (howToIndex > 0) howToIndex-- else showingHowTo = false },
             onNext = { if (howToIndex < challenge.howTo.lastIndex) howToIndex++ else { showingHowTo = false; started = true } },
             visual = when (howToIndex) {
-                1 -> { { EyeCoverDiagram(coverLeft = true) } }
+                1 -> { { EyeCoverDiagram(coverLeft = true, size = 240.dp) } }
                 2 -> { { AstigmatismFan() } }
-                3 -> { { EyeCoverDiagram(coverLeft = false) } }
+                3 -> { { EyeCoverDiagram(coverLeft = false, size = 240.dp) } }
                 else -> null
             }
         )
@@ -680,11 +639,11 @@ private fun AstigmatismFanCheck(challenge: VisionChallenge, onClose: () -> Unit)
         IntroScreen(
             challenge,
             emptyList(),
-            "All spokes are drawn with identical width and darkness. Uneven appearance can have several causes and this pattern cannot diagnose astigmatism.",
+            "All spokes are identical; unevenness has many causes, not a diagnosis.",
             onClose,
             onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }
         ) {
-            HowItWorksDemo("Cover one eye, compare every spoke, then switch and do the other.") {
+            HowItWorksDemo("Cover one eye, compare the spokes, then switch.") {
                 EyeCoverDiagram(coverLeft = true)
             }
         }
@@ -698,7 +657,7 @@ private fun AstigmatismFanCheck(challenge: VisionChallenge, onClose: () -> Unit)
             if (count == 0) "Record this only as today's observation. It does not rule out astigmatism or another vision problem."
             else "If this repeats, or vision is blurred or distorted, arrange a comprehensive eye examination. The fan cannot determine a prescription.",
             onClose,
-            if (count == 0) AppTheme.colors.teal else AppTheme.colors.amber,
+            if (count == 0) AppTheme.colors.textHigh else AppTheme.colors.amber,
             details = {
                 Spacer(Modifier.height(20.dp))
                 ResultMetric("Right eye", if (uneven[0]) "Some lines darker" else "Lines looked equal")
@@ -713,7 +672,7 @@ private fun AstigmatismFanCheck(challenge: VisionChallenge, onClose: () -> Unit)
         Text(if (eye == 0) "Cover your left eye" else "Cover your right eye", color = colors.textHigh, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Text("Keep looking at the centre", color = colors.textMedium, fontSize = 13.sp)
         Spacer(Modifier.height(14.dp))
-        EyeCoverDiagram(coverLeft = eye == 0)
+        EyeCoverDiagram(coverLeft = eye == 0, size = 120.dp)
         Spacer(Modifier.height(18.dp))
         AstigmatismFan()
         Spacer(Modifier.height(18.dp))
@@ -778,11 +737,11 @@ private fun ReadingClarityCheck(challenge: VisionChallenge, onClose: () -> Unit)
         IntroScreen(
             challenge,
             emptyList(),
-            "Text size follows this phone's display and accessibility settings. This is a comfort baseline, not a Jaeger or near-acuity result.",
+            "Follows this phone's display settings; a comfort baseline, not an acuity result.",
             onClose,
             onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }
         ) {
-            HowItWorksDemo("You'll read from the largest line down and tap the smallest one that's still comfortable.") {
+            HowItWorksDemo("Read down and tap the smallest comfortable line.") {
                 Text("Aa", color = AppTheme.colors.textHigh, fontSize = 34.sp, fontWeight = FontWeight.Bold)
             }
         }
@@ -809,7 +768,7 @@ private fun ReadingClarityCheck(challenge: VisionChallenge, onClose: () -> Unit)
                 lines.forEach { (label, text, size) ->
                     Surface(color = colors.surface, border = androidx.compose.foundation.BorderStroke(1.dp, colors.border), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable { selectedLine = "$label was comfortable" }) {
                         Column(Modifier.padding(14.dp)) {
-                            Text(label.uppercase(), color = colors.teal, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
+                            Text(label.uppercase(), color = colors.amber, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
                             Spacer(Modifier.height(5.dp)); Text(text, color = colors.textHigh, fontSize = size, lineHeight = size * 1.25f)
                         }
                     }
@@ -845,11 +804,11 @@ private fun RedGreenBalanceCheck(challenge: VisionChallenge, onClose: () -> Unit
         IntroScreen(
             challenge,
             emptyList(),
-            "Clinicians use duochrome as one step during subjective refraction. A phone display and this observation cannot determine whether a lens prescription should change.",
+            "One step clinicians use in refraction; this alone can't change a prescription.",
             onClose,
             onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }
         ) {
-            HowItWorksDemo("You'll compare the identical dark rings on the red and green halves.") {
+            HowItWorksDemo("Compare the dark rings on each side.") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BalancePanel(Color(0xFFD94A4A), "RED", Modifier.size(70.dp).clip(RoundedCornerShape(12.dp)))
                     BalancePanel(Color(0xFF48A868), "GREEN", Modifier.size(70.dp).clip(RoundedCornerShape(12.dp)))
@@ -932,11 +891,11 @@ private fun ColorDiscriminationChallenge(challenge: VisionChallenge, onClose: ()
         IntroScreen(
             challenge,
             emptyList(),
-            "This original hue game is not an Ishihara or validated colour-vision test. Display calibration, viewing angle and ambient light alter the score.",
+            "A hue game, not a validated colour-vision test; display and light affect scores.",
             onClose,
             onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }
         ) {
-            HowItWorksDemo("One tile's hue is slightly different from the other three — find and tap it.", swatchDemo)
+            HowItWorksDemo("Find the tile with a different hue.", swatchDemo)
         }
         return
     }
@@ -998,11 +957,11 @@ private fun IshiharaStyleCheck(challenge: VisionChallenge, onClose: () -> Unit) 
         IntroScreen(
             challenge,
             emptyList(),
-            "These are newly generated Ishihara-style plates, not official Ishihara plates. Only a validated colour-plate test administered under specified lighting can assess colour vision.",
+            "Generated plates, not official Ishihara ones; only a validated test assesses colour vision.",
             onClose,
             onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }
         ) {
-            HowItWorksDemo("Look for the number formed by the coloured dots — or choose \"No number\".") {
+            HowItWorksDemo("Find the number in the coloured dots.") {
                 PseudoisochromaticPlate(digit = 8, seed = 41)
             }
         }
@@ -1015,7 +974,7 @@ private fun IshiharaStyleCheck(challenge: VisionChallenge, onClose: () -> Unit) 
             if (correct == digits.size) "All generated plates were identified on this display. This does not rule out colour-vision deficiency."
             else "One or more generated plates were missed. Screen colour can cause this; request a validated colour-plate test if colour decisions matter or this concerns you.",
             onClose,
-            if (correct == digits.size) AppTheme.colors.teal else AppTheme.colors.amber
+            if (correct == digits.size) AppTheme.colors.textHigh else AppTheme.colors.amber
         )
         return
     }
@@ -1112,8 +1071,8 @@ private fun CoverAlignmentCheck(challenge: VisionChallenge, onClose: () -> Unit)
             onBack = { if (howToIndex > 0) howToIndex-- else showingHowTo = false },
             onNext = { if (howToIndex < challenge.howTo.lastIndex) howToIndex++ else { showingHowTo = false; started = true } },
             visual = when (howToIndex) {
-                2 -> { { EyeCoverDiagram(coverLeft = true) } }
-                3 -> { { EyeCoverDiagram(coverLeft = false) } }
+                2 -> { { EyeCoverDiagram(coverLeft = true, size = 240.dp) } }
+                3 -> { { EyeCoverDiagram(coverLeft = false, size = 240.dp) } }
                 else -> null
             }
         )
@@ -1123,11 +1082,11 @@ private fun CoverAlignmentCheck(challenge: VisionChallenge, onClose: () -> Unit)
         IntroScreen(
             challenge,
             emptyList(),
-            "Clinical cover testing requires trained observation and may use prisms to measure movement. This helper check cannot rule out or quantify eye misalignment.",
+            "Clinical cover testing needs trained observation; this can't rule out misalignment.",
             onClose,
             onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }
         ) {
-            HowItWorksDemo("A helper covers one eye and watches the other for movement, then repeats on the other side.") {
+            HowItWorksDemo("A helper watches for eye movement.") {
                 EyeCoverDiagram(coverLeft = true)
             }
         }
@@ -1141,7 +1100,7 @@ private fun CoverAlignmentCheck(challenge: VisionChallenge, onClose: () -> Unit)
             if (count == 0) "A helper did not notice movement today. Subtle or intermittent alignment differences can still be missed."
             else "An eye-care professional should repeat the cover test and interpret the movement. This observation cannot identify the type or amount of misalignment.",
             onClose,
-            if (count == 0) AppTheme.colors.teal else AppTheme.colors.amber
+            if (count == 0) AppTheme.colors.textHigh else AppTheme.colors.amber
         )
         return
     }
@@ -1187,11 +1146,11 @@ private fun NearPointConvergenceLog(challenge: VisionChallenge, onClose: () -> U
         IntroScreen(
             challenge,
             emptyList(),
-            "Clinical NPC records both the subjective double point and objective eye movement, then the recovery point. Stop for pain, nausea or persistent double vision.",
+            "Clinical NPC records more detail than this. Stop for pain, nausea or double vision.",
             onClose,
             onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }
         ) {
-            HowItWorksDemo("Move a pen target from arm's length toward your nose until your helper sees it double.", penTargetDemo)
+            HowItWorksDemo("Move a pen target toward your nose slowly.", penTargetDemo)
         }
         return
     }
@@ -1202,7 +1161,7 @@ private fun NearPointConvergenceLog(challenge: VisionChallenge, onClose: () -> U
             "Median break point: $median cm",
             "Keep this as a technique-dependent baseline and share repeated or concerning results with an eye-care professional. It is not a convergence-insufficiency diagnosis.",
             onClose,
-            if (median > 10) AppTheme.colors.amber else AppTheme.colors.teal,
+            if (median > 10) AppTheme.colors.amber else AppTheme.colors.textHigh,
             details = { Spacer(Modifier.height(20.dp)); ResultMetric("Three trials", readings.joinToString(" · ") { "$it cm" }) }
         )
         return
@@ -1265,12 +1224,12 @@ private fun AmblyopiaPlayChallenge(challenge: VisionChallenge, age: Int, onClose
         IntroScreen(
             challenge,
             emptyList(),
-            if (age < 18) "Amblyopia needs an eye examination and early professional treatment. This game does not decide which eye to patch or for how long; follow the child's existing treatment plan exactly."
-            else "Amblyopia begins in childhood and treatment is usually less effective in adults. This is a visual-search game, not amblyopia therapy or a substitute for assessment.",
+            if (age < 18) "Amblyopia needs professional treatment; follow the existing plan exactly."
+            else "A visual-search game only, not amblyopia therapy or an assessment.",
             onClose,
             onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }
         ) {
-            HowItWorksDemo("Match the target symbol to the same symbol in the grid.", gridDemo)
+            HowItWorksDemo("Match the target symbol in the grid.", gridDemo)
         }
         return
     }
@@ -1280,7 +1239,6 @@ private fun AmblyopiaPlayChallenge(challenge: VisionChallenge, age: Int, onClose
             "${accuracyPercent(correct, challenge.steps)}% accurate",
             "This score measures symbol-search accuracy only. It does not measure improvement in amblyopia or change an existing treatment plan.",
             onClose,
-            AppTheme.colors.apricot,
             details = { Spacer(Modifier.height(20.dp)); ResultMetric("Matches found", "$correct / ${challenge.steps}") }
         )
         return
@@ -1331,7 +1289,7 @@ private fun ContrastChallenge(challenge: VisionChallenge, onClose: () -> Unit) {
         return
     }
     if (!started) {
-        IntroScreen(challenge, emptyList(), "Screens differ in brightness, gamma, glare and colour. Compare scores only on the same device under the same conditions.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }) { HowItWorksDemo("One circle looks slightly stronger — more solid — than the other three.", dotsDemo) }; return
+        IntroScreen(challenge, emptyList(), "Screens vary; only compare scores on the same device and conditions.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else started = true }) { HowItWorksDemo("Find the circle that looks strongest.", dotsDemo) }; return
     }
     if (round >= contrasts.size) {
         val score = accuracyPercent(correct, contrasts.size)
@@ -1376,7 +1334,7 @@ private fun PeripheralChallenge(challenge: VisionChallenge, onClose: () -> Unit)
         return
     }
     if (phase == -1) {
-        IntroScreen(challenge, emptyList(), "This small-screen attention task cannot test your visual field. Formal perimetry is needed to assess field loss.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else phase = 0 }) { HowItWorksDemo("Keep watching the centre cross; when a dot flashes near an edge, tap that direction.", crossDemo) }; return
+        IntroScreen(challenge, emptyList(), "Tests attention, not your visual field; formal perimetry checks field loss.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else phase = 0 }) { HowItWorksDemo("Watch the cross; tap where a dot flashes.", crossDemo) }; return
     }
     if (phase == 3) {
         val score = accuracyPercent(correct, challenge.steps)
@@ -1419,7 +1377,7 @@ private fun ReactionChallenge(challenge: VisionChallenge, onClose: () -> Unit) {
         return
     }
     if (phase == -1) {
-        IntroScreen(challenge, emptyList(), "Tap time includes attention, decision and finger movement. It is not a measure of retinal or neurological health.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else phase = 0 }) { HowItWorksDemo("Tap the amber target the instant it appears, anywhere on the screen.", targetDemo) }; return
+        IntroScreen(challenge, emptyList(), "Measures tap speed only, not retinal or neurological health.", onClose, onStart = { if (challenge.howTo.isNotEmpty()) { howToIndex = 0; showingHowTo = true } else phase = 0 }) { HowItWorksDemo("Tap the target the instant it appears.", targetDemo) }; return
     }
     if (phase == 2) {
         val median = medianMillis(samples)

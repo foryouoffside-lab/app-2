@@ -34,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -45,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.example.model.DigitalReproducibility
 import com.example.model.EvidenceGrade
 import com.example.model.Practice
+import com.example.model.ProfessionalReviewStatus
 import com.example.model.StudioDrill
 import com.example.model.StudioStimulus
 import com.example.ui.theme.AppTheme
@@ -84,22 +84,22 @@ fun DrillSheet(drill: StudioDrill, onDismiss: () -> Unit) {
 private fun HowToCard(steps: List<String>) {
     Surface(
         color = AppTheme.colors.surface, shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.teal.copy(alpha = .5f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(
-                "HOW TO DO IT", color = AppTheme.colors.teal, fontSize = 11.sp,
+                "HOW TO DO IT", color = AppTheme.colors.textMuted, fontSize = 11.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp
             )
             steps.forEachIndexed { index, step ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(
-                        Modifier.size(24.dp).background(AppTheme.colors.teal.copy(alpha = .16f), CircleShape),
+                        Modifier.size(24.dp).background(AppTheme.colors.amber.copy(alpha = .16f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "${index + 1}", color = AppTheme.colors.teal,
+                            "${index + 1}", color = AppTheme.colors.amber,
                             fontSize = 12.sp, fontWeight = FontWeight.Bold
                         )
                     }
@@ -121,12 +121,13 @@ fun DrillEvidenceBody(drill: StudioDrill, modifier: Modifier = Modifier) {
             InfoSection("Also known as", drill.aliases.joinToString(" · "))
         }
         DoseCard(drill)
+        BenefitsCard(drill)
         EvidenceCard(drill)
-        InfoSection("Digital reproduction", "${drill.digitalReproducibility.label()}. ${drill.digitalValidity}\n\nHardware: ${drill.equipment}")
+        DigitalReproductionSection(drill)
         InfoSection("What it does NOT prove", drill.unprovenClaims.joinToString("\n• ", prefix = "• "))
         SafetyBanner("STOP for persistent double vision, significant dizziness, nausea, pain, severe headache, or a new visual disturbance. ${drill.contraindications}")
         References(drill)
-        Text("No diagnosis · No treatment prescription · Research verified 15 September 2026", color = AppTheme.colors.textMuted, fontSize = 11.sp)
+        Text("No diagnosis · No treatment prescription", color = AppTheme.colors.textMuted, fontSize = 11.sp)
     }
 }
 
@@ -140,7 +141,7 @@ fun DrillEvidenceBody(drill: StudioDrill, modifier: Modifier = Modifier) {
 private fun DoseCard(drill: StudioDrill) {
     val dose = drill.dose
     val habit = drill.practice == Practice.HABIT
-    val accent = if (dose.fromEvidence) AppTheme.colors.teal else AppTheme.colors.amber
+    val accent = if (dose.fromEvidence) AppTheme.colors.iris else AppTheme.colors.amber
     Surface(
         color = AppTheme.colors.surface, shape = RoundedCornerShape(16.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = .5f)),
@@ -166,6 +167,27 @@ private fun DoseCard(drill: StudioDrill) {
     }
 }
 
+/**
+ * The case for doing this at all, in plain language, before the evidence detail below it.
+ *
+ * Built from fields the model already carries ([StudioDrill.clinicalPurpose] and
+ * [StudioDrill.whatItTrains]) rather than new copy, so it can't drift from the evidence
+ * it sits above.
+ */
+@Composable
+private fun BenefitsCard(drill: StudioDrill) {
+    Surface(
+        color = AppTheme.colors.surface, shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border), modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("BENEFITS", color = AppTheme.colors.textMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+            Text(drill.clinicalPurpose, color = AppTheme.colors.textHigh, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
+            Text(drill.whatItTrains, color = AppTheme.colors.textMedium, fontSize = 13.sp, lineHeight = 20.sp)
+        }
+    }
+}
+
 @Composable
 private fun EvidenceCard(drill: StudioDrill) {
     Surface(
@@ -174,15 +196,36 @@ private fun EvidenceCard(drill: StudioDrill) {
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("EVIDENCE", color = AppTheme.colors.textMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-            EvidenceLine("Grade", drill.evidenceGrade.name)
-            EvidenceLine("Clinical status", if (drill.clinicalUse) "Clinically used" else "Research only")
+            EvidenceLine(
+                "Status",
+                "${if (drill.clinicalUse) "Clinically used" else "Research only"} · ${drill.reviewStatus.label()}"
+            )
             EvidenceLine("Evidence type", drill.evidenceType)
-            EvidenceLine("Population", drill.studiedPopulation)
-            EvidenceLine("Condition", drill.condition)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                EvidenceLine("Population", drill.studiedPopulation, Modifier.weight(1f))
+                EvidenceLine("Condition", drill.condition, Modifier.weight(1f))
+            }
             InfoSection("Evidence for", drill.evidenceFor, compact = true)
             InfoSection("Limitation", drill.evidenceLimitation, compact = true)
             InfoSection("Measured outcomes", drill.provenOutcomes.joinToString(" · "), compact = true)
-            EvidenceLine("Review status", drill.reviewStatus.name.replace('_', ' '))
+        }
+    }
+}
+
+@Composable
+private fun DigitalReproductionSection(drill: StudioDrill) {
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(
+            "DIGITAL REPRODUCTION", color = AppTheme.colors.textMuted, fontSize = 10.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp
+        )
+        Text(
+            "${drill.digitalReproducibility.label()}. ${drill.digitalValidity}",
+            color = AppTheme.colors.textHigh, fontSize = 15.sp, lineHeight = 23.sp
+        )
+        // Nothing needed is not information worth a line of its own.
+        if (drill.equipment != "None") {
+            Text("Hardware: ${drill.equipment}", color = AppTheme.colors.textMedium, fontSize = 13.sp, lineHeight = 20.sp)
         }
     }
 }
@@ -197,7 +240,7 @@ private fun References(drill: StudioDrill) {
                 Modifier.fillMaxWidth().border(1.dp, AppTheme.colors.border, RoundedCornerShape(12.dp))
                     .clickable { uriHandler.openUri(source.url) }.padding(14.dp)
             ) {
-                Text(source.title, color = AppTheme.colors.teal, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, lineHeight = 20.sp)
+                Text(source.title, color = AppTheme.colors.iris, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, lineHeight = 20.sp)
                 Spacer(Modifier.size(4.dp))
                 Text(source.citation, color = AppTheme.colors.textMedium, fontSize = 12.sp, lineHeight = 18.sp)
             }
@@ -216,8 +259,8 @@ private fun InfoSection(title: String, body: String, compact: Boolean = false) {
 }
 
 @Composable
-private fun EvidenceLine(label: String, value: String) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+private fun EvidenceLine(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
             label.uppercase(), color = AppTheme.colors.textMuted, fontSize = 10.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 1.sp
@@ -229,11 +272,9 @@ private fun EvidenceLine(label: String, value: String) {
 @Composable
 private fun GradeMark(grade: EvidenceGrade) {
     val color = when (grade) {
-        EvidenceGrade.A -> Color(0xFF28B781)
-        EvidenceGrade.B -> AppTheme.colors.teal
+        EvidenceGrade.A, EvidenceGrade.B -> AppTheme.colors.iris
         EvidenceGrade.C -> AppTheme.colors.amber
-        EvidenceGrade.D -> Color(0xFFE18A52)
-        EvidenceGrade.E -> Color(0xFFE05D68)
+        EvidenceGrade.D, EvidenceGrade.E -> AppTheme.colors.rose
     }
     Box(Modifier.size(38.dp).background(color.copy(alpha = .14f), CircleShape).border(1.dp, color, CircleShape), contentAlignment = Alignment.Center) {
         Text(grade.name, color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -256,4 +297,13 @@ private fun DigitalReproducibility.label() = when (this) {
     DigitalReproducibility.FULL -> "Digital"
     DigitalReproducibility.PARTIAL -> "Partial demo"
     DigitalReproducibility.EQUIPMENT_REQUIRED -> "Equipment"
+}
+
+private fun ProfessionalReviewStatus.label() = when (this) {
+    ProfessionalReviewStatus.NOT_REVIEWED -> "Not yet reviewed"
+    ProfessionalReviewStatus.RESEARCH_REVIEWED -> "Research reviewed"
+    ProfessionalReviewStatus.PROFESSIONAL_REVIEW_REQUIRED -> "Needs professional review"
+    ProfessionalReviewStatus.PROFESSIONALLY_REVIEWED -> "Professionally reviewed"
+    ProfessionalReviewStatus.APPROVED_FOR_GENERAL_TRAINING -> "Approved for general training"
+    ProfessionalReviewStatus.CLINICAL_ONLY -> "Clinical use only"
 }

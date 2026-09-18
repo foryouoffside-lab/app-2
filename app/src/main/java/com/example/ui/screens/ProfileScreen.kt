@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -28,7 +26,6 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
@@ -58,12 +55,12 @@ import com.example.ui.theme.AppTheme
 import com.example.util.TargetColor
 import com.example.util.TARGET_SPEED_RANGE
 import com.example.util.targetSpeedLabel
-import com.example.util.SUPPORTED_AGES
+import com.example.util.AgeRange
+import com.example.util.ageRangeFor
 import com.example.util.ThemeMode
 import com.example.util.BREAK_INTERVAL_OPTIONS
 import com.example.util.BreakReminderSettings
 import com.example.util.ScreenUseWatchService
-import kotlin.math.roundToInt
 
 @Composable
 fun ProfileScreen(
@@ -72,6 +69,7 @@ fun ProfileScreen(
     themeMode: ThemeMode,
     voiceEnabled: Boolean,
     hapticsEnabled: Boolean,
+    trueBlackEnabled: Boolean,
     targetColor: TargetColor,
     targetSpeed: Float,
     breakReminderSettings: BreakReminderSettings,
@@ -79,6 +77,7 @@ fun ProfileScreen(
     onThemeChange: (ThemeMode) -> Unit,
     onVoiceChange: (Boolean) -> Unit,
     onHapticsChange: (Boolean) -> Unit,
+    onTrueBlackChange: (Boolean) -> Unit,
     onTargetColorChange: (TargetColor) -> Unit,
     onTargetSpeedChange: (Float) -> Unit,
     onBreakReminderSettingsChange: (BreakReminderSettings) -> Unit,
@@ -101,47 +100,39 @@ fun ProfileScreen(
         }
 
         item {
-            SettingsCard(title = "Appearance") {
+            SettingsCard(title = "Eye comfort") {
                 SegmentedThemePicker(themeMode = themeMode, onThemeChange = onThemeChange)
+                Spacer(modifier = Modifier.height(14.dp))
+                ToggleRow(
+                    label = "True black",
+                    detail = "Pure black at night instead of the warmer charcoal default.",
+                    checked = trueBlackEnabled,
+                    onChange = onTrueBlackChange,
+                    tag = "toggle_true_black"
+                )
             }
         }
 
         item {
-            var draft by remember(age) { mutableIntStateOf(age) }
             SettingsCard(title = "Age") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "$draft",
-                        color = colors.textHigh,
-                        fontSize = 40.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = nearTargetCm(draft)?.let { "near target ${it}cm" }
-                            ?: "no near drills",
-                        color = colors.teal,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-                Slider(
-                    value = draft.toFloat(),
-                    onValueChange = { draft = it.roundToInt() },
-                    onValueChangeFinished = { onAgeChange(draft) },
-                    valueRange = SUPPORTED_AGES.first.toFloat()..SUPPORTED_AGES.last.toFloat(),
-                    colors = SliderDefaults.colors(
-                        thumbColor = colors.amber,
-                        activeTrackColor = colors.amber,
-                        inactiveTrackColor = colors.surfaceElevated
-                    ),
-                    modifier = Modifier.fillMaxWidth().testTag("settings_age")
-                )
                 Text(
-                    text = ageNote(draft),
+                    text = ageRangeFor(age).label,
+                    color = colors.textHigh,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = nearTargetCm(age)?.let { "Near target set at ${it}cm" }
+                        ?: "No near drills at this age",
+                    color = colors.textMuted,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                AgeRangePicker(selected = ageRangeFor(age), onSelect = { onAgeChange(it.representativeAge) })
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = ageNote(age),
                     color = colors.textMuted,
                     fontSize = 12.sp
                 )
@@ -162,7 +153,7 @@ fun ProfileScreen(
                 Button(
                     onClick = onRetakeAssessment,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = colors.teal,
+                        containerColor = colors.amber,
                         contentColor = colors.bg
                     ),
                     shape = RoundedCornerShape(14.dp),
@@ -329,7 +320,7 @@ private fun SmartBreakRow(
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Grant Usage Access",
-            color = colors.teal,
+            color = colors.amber,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
@@ -394,7 +385,7 @@ private fun BreakReminderCard(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (selected) colors.teal else colors.surfaceElevated)
+                        .background(if (selected) colors.amber else colors.surfaceElevated)
                         .clickable { onChange(settings.copy(intervalMinutes = minutes)) }
                         .padding(vertical = 10.dp)
                         .testTag("break_interval_$minutes")
@@ -529,6 +520,34 @@ private fun SettingsCard(title: String, content: @Composable () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
             content()
         }
+    }
+}
+
+/** Two rows of three brackets, same chip styling as the break-interval picker below. */
+@Composable
+private fun AgeRangePicker(selected: AgeRange, onSelect: (AgeRange) -> Unit) {
+    val colors = AppTheme.colors
+    AgeRange.entries.chunked(3).forEach { rowEntries ->
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+            rowEntries.forEach { range ->
+                val rangeSelected = range == selected
+                Text(
+                    text = range.label,
+                    color = if (rangeSelected) colors.bg else colors.textMedium,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (rangeSelected) colors.amber else colors.surfaceElevated)
+                        .clickable { onSelect(range) }
+                        .padding(vertical = 10.dp)
+                        .testTag("age_range_${range.name.lowercase()}")
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(7.dp))
     }
 }
 

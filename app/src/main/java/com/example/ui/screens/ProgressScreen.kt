@@ -20,12 +20,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.AlertDialog
@@ -47,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,23 +54,7 @@ import com.example.data.SessionLog
 import com.example.data.SessionLogDao
 import com.example.model.WEEKLY_CARE_GOAL
 import com.example.model.calculateHabitStats
-import com.example.ui.components.StatMetricCard
 import com.example.ui.theme.AppTheme
-import com.example.ui.theme.AmberGlow
-import com.example.ui.theme.AmberPrimary
-import com.example.ui.theme.BiologicalTeal
-import com.example.ui.theme.CharcoalSurface
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.IrisLavender
-import com.example.ui.theme.MintBreeze
-import com.example.ui.theme.MutedBorder
-import com.example.ui.theme.ObsidianBg
-import com.example.ui.theme.RoseCritical
-import com.example.ui.theme.TextHighEmphasis
-import com.example.ui.theme.TextMediumEmphasis
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.WarmApricot
-import com.example.ui.theme.ZincSurfaceElevated
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -84,8 +65,6 @@ fun ProgressScreen(
     sessionLogDao: SessionLogDao,
     modifier: Modifier = Modifier
 ) {
-    val totalSessions by sessionLogDao.getTotalSessionsCount().collectAsStateWithLifecycle(initialValue = 0)
-    val totalRestSeconds by sessionLogDao.getTotalRestSeconds().collectAsStateWithLifecycle(initialValue = 0)
     val allLogs by sessionLogDao.getAllLogs().collectAsStateWithLifecycle(initialValue = emptyList())
     val habitStats = remember(allLogs) { calculateHabitStats(allLogs) }
 
@@ -180,33 +159,6 @@ fun ProgressScreen(
             }
         }
 
-        // Stats Overview Grid
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val minutesRested = totalRestSeconds / 60
-                StatMetricCard(
-                    title = "Total Sessions",
-                    value = "$totalSessions",
-                    subtitle = "Lifetime",
-                    icon = Icons.Default.CheckCircle,
-                    accentColor = AppTheme.colors.emerald,
-                    modifier = Modifier.weight(1f)
-                )
-
-                StatMetricCard(
-                    title = "Minutes Rested",
-                    value = "${minutesRested}m",
-                    subtitle = "Rest Time",
-                    icon = Icons.Default.Schedule,
-                    accentColor = AppTheme.colors.iris,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
         // Weekly Consistency Chart
         item {
             Card(
@@ -256,18 +208,18 @@ fun ProgressScreen(
                                         .width(28.dp)
                                         .height(if (hasActivity) 54.dp else 24.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .then(
-                                            if (isToday) {
-                                                Modifier.background(Brush.verticalGradient(listOf(AppTheme.colors.teal, AppTheme.colors.iris)))
-                                            } else {
-                                                Modifier.background(if (hasActivity) AppTheme.colors.surfaceElevated else AppTheme.colors.surfaceElevated.copy(alpha = 0.4f))
+                                        .background(
+                                            when {
+                                                hasActivity -> AppTheme.colors.amber
+                                                isToday -> AppTheme.colors.textMuted.copy(alpha = 0.4f)
+                                                else -> AppTheme.colors.surfaceElevated.copy(alpha = 0.4f)
                                             }
                                         )
                                 )
 
                                 Text(
                                     text = day,
-                                    color = if (isToday) AppTheme.colors.teal else AppTheme.colors.textMedium,
+                                    color = if (isToday) AppTheme.colors.amber else AppTheme.colors.textMedium,
                                     fontSize = 12.sp,
                                     fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium
                                 )
@@ -318,7 +270,7 @@ fun ProgressScreen(
 
                         Text(
                             text = "${habitStats.activeDaysLastSeven}/$WEEKLY_CARE_GOAL this week",
-                            color = AppTheme.colors.teal,
+                            color = AppTheme.colors.amber,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -326,12 +278,21 @@ fun ProgressScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
+                    Text(
+                        text = if (habitStats.currentStreak > 0) "${habitStats.currentStreak}-day streak" else "Start your streak",
+                        color = AppTheme.colors.textHigh,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
                     val target = habitStats.nextMilestone
                     val progressFraction = if (target == null) 1f else
                         (habitStats.longestStreak.toFloat() / target).coerceIn(0f, 1f)
                     LinearProgressIndicator(
                         progress = { progressFraction },
-                        color = AppTheme.colors.teal,
+                        color = AppTheme.colors.amber,
                         trackColor = AppTheme.colors.surfaceElevated,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -339,17 +300,16 @@ fun ProgressScreen(
                             .clip(RoundedCornerShape(4.dp))
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = buildString {
-                            append("Current ${habitStats.currentStreak} days · best ${habitStats.longestStreak} · ${habitStats.totalCareDays} total care days. ")
-                            if (target != null) append("Next badge at $target days. ")
-                            append("Only one session counts each day; rest is part of the plan.")
+                        text = if (target != null) {
+                            "Best ${habitStats.longestStreak} days · next badge at $target"
+                        } else {
+                            "Best ${habitStats.longestStreak} days"
                         },
                         color = AppTheme.colors.textMedium,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp
+                        fontSize = 12.sp
                     )
                 }
             }
@@ -436,12 +396,12 @@ fun ProgressScreen(
                             modifier = Modifier
                                 .size(38.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(AppTheme.colors.teal.copy(alpha = 0.15f))
+                                .background(AppTheme.colors.surfaceElevated)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Spa,
                                 contentDescription = null,
-                                tint = AppTheme.colors.teal,
+                                tint = AppTheme.colors.textHigh,
                                 modifier = Modifier.size(18.dp)
                             )
                         }

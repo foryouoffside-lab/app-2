@@ -50,6 +50,14 @@ val DarkPalette = AppPalette(
     rose = RoseCritical
 )
 
+/** Same roles as [DarkPalette], with a neutral true-black ground for the Eye Comfort setting. */
+val TrueBlackPalette = DarkPalette.copy(
+    bg = TrueBlackBg,
+    surface = TrueBlackSurface,
+    surfaceElevated = TrueBlackSurfaceElevated,
+    border = TrueBlackBorder
+)
+
 val LightPalette = AppPalette(
     bg = PaperBg,
     surface = PaperSurface,

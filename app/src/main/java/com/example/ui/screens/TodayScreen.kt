@@ -53,6 +53,7 @@ import com.example.ui.components.HeroRoutineCard
 import com.example.ui.components.RoutineCard
 import com.example.ui.drill.DrillSheet
 import com.example.ui.theme.AppTheme
+import java.util.Calendar
 
 /**
  * Home is deliberately one decision: where today stands, today's drill, then the
@@ -69,7 +70,7 @@ fun TodayScreen(
 ) {
     val allLogs by sessionLogDao.getAllLogs().collectAsStateWithLifecycle(initialValue = emptyList())
     val dayKey = localDayKey()
-    val plan = remember(profile, dayKey) { DailyPlanRepository.forDay(profile, dayKey) }
+    val plan = remember(profile) { DailyPlanRepository.forDay(profile) }
     val stats = remember(allLogs, dayKey) { calculateHabitStats(allLogs) }
     var openHabit by remember { mutableStateOf<StudioDrill?>(null) }
 
@@ -79,18 +80,13 @@ fun TodayScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Today", color = AppTheme.colors.textHigh, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(40.dp).clip(CircleShape).background(AppTheme.colors.teal.copy(alpha = 0.12f))
-                ) {
-                    Icon(Icons.Default.Spa, contentDescription = null, tint = AppTheme.colors.teal, modifier = Modifier.size(20.dp))
-                }
+            Column {
+                Text(greeting(), color = AppTheme.colors.textHigh, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Let's take care of your eyes today.",
+                    color = AppTheme.colors.textMuted,
+                    fontSize = 14.sp
+                )
             }
         }
 
@@ -115,17 +111,9 @@ fun TodayScreen(
                     RoutineCard(
                         protocol = recommendation.protocol,
                         icon = Icons.Default.Spa,
-                        iconTint = AppTheme.colors.teal,
+                        iconTint = AppTheme.colors.textHigh,
                         onStart = { onStartProtocol(recommendation.protocol) },
                         modifier = Modifier.testTag("daily_drill_${recommendation.drill.id}")
-                    )
-                }
-                item {
-                    Text(
-                        "Each drill begins with a tutorial. Movement cycles use reps; holds and breaks use time.",
-                        color = AppTheme.colors.textMuted,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp
                     )
                 }
             } else {
@@ -154,6 +142,13 @@ fun TodayScreen(
     openHabit?.let { drill -> DrillSheet(drill) { openHabit = null } }
 }
 
+/** A warmer opener than a bare "Today", the same low-cost personalization every wellness app uses. */
+private fun greeting(): String = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
+    in 0..11 -> "Good morning"
+    in 12..16 -> "Good afternoon"
+    else -> "Good evening"
+}
+
 /**
  * The one number worth coming back for: consecutive days, with the last seven as dots.
  * Totals ("all-time minutes") reward nothing a person can act on today, so they stay
@@ -165,7 +160,7 @@ private fun DailyProgressStrip(stats: HabitStats) {
     Surface(
         color = colors.surface,
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, if (stats.todayComplete) colors.emerald.copy(alpha = .55f) else colors.border),
+        border = BorderStroke(1.dp, if (stats.todayComplete) colors.amber.copy(alpha = .55f) else colors.border),
         modifier = Modifier.fillMaxWidth().testTag("daily_progress_strip")
     ) {
         Row(
@@ -185,7 +180,7 @@ private fun DailyProgressStrip(stats: HabitStats) {
                 )
                 Text(
                     if (stats.todayComplete) "Today is done" else "One session counts today",
-                    color = if (stats.todayComplete) colors.emerald else colors.textMuted,
+                    color = if (stats.todayComplete) colors.amber else colors.textMuted,
                     fontSize = 12.sp
                 )
             }
@@ -197,7 +192,7 @@ private fun DailyProgressStrip(stats: HabitStats) {
                             .clip(CircleShape)
                             .background(
                                 when {
-                                    day.completed -> colors.teal
+                                    day.completed -> colors.amber
                                     day.isToday -> colors.textMuted
                                     else -> colors.surfaceElevated
                                 }
@@ -246,9 +241,9 @@ private fun HabitPlanCard(recommendation: DailyRecommendation, onOpen: () -> Uni
         Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(13.dp)).background(AppTheme.colors.teal.copy(alpha = 0.14f))
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(13.dp)).background(AppTheme.colors.surfaceElevated)
             ) {
-                Icon(Icons.Default.MenuBook, contentDescription = null, tint = AppTheme.colors.teal, modifier = Modifier.size(21.dp))
+                Icon(Icons.Default.MenuBook, contentDescription = null, tint = AppTheme.colors.textHigh, modifier = Modifier.size(21.dp))
             }
             Spacer(Modifier.width(12.dp))
             Text(

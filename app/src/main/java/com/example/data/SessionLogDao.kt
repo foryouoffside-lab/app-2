@@ -11,12 +11,6 @@ interface SessionLogDao {
     @Query("SELECT * FROM session_logs ORDER BY timestamp DESC")
     fun getAllLogs(): Flow<List<SessionLog>>
 
-    @Query("SELECT COUNT(*) FROM session_logs")
-    fun getTotalSessionsCount(): Flow<Int>
-
-    @Query("SELECT COALESCE(SUM(durationSeconds), 0) FROM session_logs")
-    fun getTotalRestSeconds(): Flow<Int>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLog(log: SessionLog)
 
