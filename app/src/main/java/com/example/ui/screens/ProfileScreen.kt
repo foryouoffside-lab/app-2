@@ -142,12 +142,11 @@ fun ProfileScreen(
         item {
             SettingsCard(title = "Daily plan") {
                 Text(
-                    text = wellnessProfile.screenTime.label + " screen time  |  " +
-                        wellnessProfile.correction.label + "  |  " +
-                        if (wellnessProfile.symptoms.isEmpty()) "No regular symptoms" else "${wellnessProfile.symptoms.size} symptom areas",
+                    text = wellnessProfile.screenTime.label + " screen time · " +
+                        wellnessProfile.correction.label + " · " +
+                        if (wellnessProfile.symptoms.isEmpty()) "no symptoms" else "${wellnessProfile.symptoms.size} symptom areas",
                     color = colors.textHigh,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp
+                    fontSize = 13.sp
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
@@ -168,7 +167,6 @@ fun ProfileScreen(
             SettingsCard(title = "Guidance") {
                 ToggleRow(
                     label = "Voice coach",
-                    detail = "Speaks each step during a drill.",
                     checked = voiceEnabled,
                     onChange = onVoiceChange,
                     tag = "toggle_voice"
@@ -176,7 +174,6 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(4.dp))
                 ToggleRow(
                     label = "Vibration",
-                    detail = "A pulse at each stage change.",
                     checked = hapticsEnabled,
                     onChange = onHapticsChange,
                     tag = "toggle_haptics"
@@ -222,11 +219,9 @@ fun ProfileScreen(
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Applies to drills whose target is a plain mark. Drills where the colour " +
-                        "is the exercise \u2014 the red and cyan fusion pair, the three-bead string \u2014 keep theirs.",
+                    text = "Doesn't apply where colour is the exercise itself (fusion pair, bead string).",
                     color = colors.textMedium,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp
+                    fontSize = 12.sp
                 )
 
                 Spacer(modifier = Modifier.height(18.dp))
@@ -234,11 +229,9 @@ fun ProfileScreen(
                 TargetSpeedBar(speed = targetSpeed, onSpeedChange = onTargetSpeedChange)
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Changes how far a moving target travels, not how long the drill runs. " +
-                        "The dose stays the dose.",
+                    text = "Changes target travel distance, not drill duration.",
                     color = colors.textMedium,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp
+                    fontSize = 12.sp
                 )
 
             }
@@ -360,7 +353,7 @@ private fun SmartBreakRow(
     ToggleRow(
         label = "Smart breaks",
         detail = if (granted) {
-            "Nudges after a long unbroken stretch in a social or video app, instead of on the clock."
+            "Nudges after a long stretch in a social or video app."
         } else {
             "Needs Usage Access so the app can tell when you have been scrolling. Tap below to grant it."
         },
@@ -398,10 +391,9 @@ private fun SmartBreakRow(
     if (settings.smartEnabled && granted) {
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "A quiet ongoing notification stays in your shade while this is on. Android requires it.",
+            text = "Android requires a quiet notification while this is on.",
             color = colors.textMuted,
-            fontSize = 11.sp,
-            lineHeight = 16.sp
+            fontSize = 11.sp
         )
     }
 }
@@ -644,7 +636,7 @@ private fun SegmentedThemePicker(themeMode: ThemeMode, onThemeChange: (ThemeMode
 @Composable
 private fun ToggleRow(
     label: String,
-    detail: String,
+    detail: String? = null,
     checked: Boolean,
     onChange: (Boolean) -> Unit,
     tag: String
@@ -659,7 +651,9 @@ private fun ToggleRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = label, color = colors.textHigh, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-            Text(text = detail, color = colors.textMuted, fontSize = 12.sp)
+            if (detail != null) {
+                Text(text = detail, color = colors.textMuted, fontSize = 12.sp)
+            }
         }
         Switch(
             checked = checked,

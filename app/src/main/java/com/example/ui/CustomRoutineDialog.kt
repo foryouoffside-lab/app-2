@@ -417,7 +417,7 @@ fun CustomRoutineBuilderDialog(
                                     }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(12.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Box(
@@ -461,14 +461,6 @@ fun CustomRoutineBuilderDialog(
                                                 modifier = Modifier.padding(start = 6.dp)
                                             )
                                         }
-                                        Spacer(modifier = Modifier.height(3.dp))
-                                        Text(
-                                            text = template.whatYouDo,
-                                            color = AppTheme.colors.textMedium,
-                                            fontSize = 11.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
                                     }
                                 }
                             }
